@@ -1,0 +1,82 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: adapter3d-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - adapter3d_internal
+    # Sem ports expostas — só backend acessa, via network interna
+
+  backend:
+    build: ./backend
+    container_name: adapter3d-backend
+    restart: unless-stopped
+    environment:
+      - PORT=5000
+      - MONGO_URI=mongodb://mongo:27017/digitalcard
+      - JWT_SECRET=${JWT_SECRET}
+      - ADMIN_KEY=${ADMIN_KEY}
+    volumes:
+      - backend_uploads:/app/uploads
+    networks:
+      - adapter3d_internal
+      - traefik9
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik9"
+
+      # Router HTTPS — só /api/*
+      - "traefik.http.routers.adapter3d-api-https.rule=Host(`${DOMAIN}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.adapter3d-api-https.entrypoints=https"
+      - "traefik.http.routers.adapter3d-api-https.tls=true"
+      - "traefik.http.routers.adapter3d-api-https.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.adapter3d-api-https.service=adapter3d-api-service"
+
+      # Router HTTP — redireciona pra HTTPS
+      - "traefik.http.routers.adapter3d-api-http.rule=Host(`${DOMAIN}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.adapter3d-api-http.entrypoints=http"
+      - "traefik.http.routers.adapter3d-api-http.middlewares=adapter3d-https-redirect"
+
+      # Service
+      - "traefik.http.services.adapter3d-api-service.loadbalancer.server.port=5000"
+
+  frontend:
+    build: ./frontend
+    container_name: adapter3d-frontend
+    restart: unless-stopped
+    networks:
+      - traefik9
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik9"
+
+      # Router HTTPS — pega tudo que NÃO for /api (a regra do backend tem prioridade maior por ser mais específica)
+      - "traefik.http.routers.adapter3d-web-https.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.adapter3d-web-https.entrypoints=https"
+      - "traefik.http.routers.adapter3d-web-https.tls=true"
+      - "traefik.http.routers.adapter3d-web-https.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.adapter3d-web-https.service=adapter3d-web-service"
+
+      # Router HTTP — redireciona pra HTTPS
+      - "traefik.http.routers.adapter3d-web-http.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.adapter3d-web-http.entrypoints=http"
+      - "traefik.http.routers.adapter3d-web-http.middlewares=adapter3d-https-redirect"
+
+      # Middleware (definido só uma vez, usado pelos dois routers HTTP)
+      - "traefik.http.middlewares.adapter3d-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.adapter3d-https-redirect.redirectscheme.permanent=true"
+
+      # Service
+      - "traefik.http.services.adapter3d-web-service.loadbalancer.server.port=80"
+
+volumes:
+  mongo_data:
+  backend_uploads:
+
+networks:
+  adapter3d_internal:
+    driver: bridge
+  traefik9:
+    external: true
