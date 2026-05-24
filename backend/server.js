@@ -2,18 +2,24 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const path = require('path');
 const apiRoutes = require('./routes/api');
 
 dotenv.config();
 
-if (!process.env.JWT_SECRET) {
-  console.error('FATAL: JWT_SECRET não está definido. Configure-o no .env antes de iniciar o servidor.');
-  process.exit(1);
-}
-if (!process.env.ADMIN_KEY) {
-  console.error('FATAL: ADMIN_KEY não está definido. Configure-o no .env antes de iniciar o servidor.');
-  process.exit(1);
+const REQUIRED_ENV = [
+  'JWT_SECRET',
+  'ADMIN_KEY',
+  'MINIO_ENDPOINT',
+  'MINIO_ACCESS_KEY',
+  'MINIO_SECRET_KEY',
+  'MINIO_BUCKET',
+  'MINIO_PUBLIC_URL'
+];
+for (const key of REQUIRED_ENV) {
+  if (!process.env[key]) {
+    console.error(`FATAL: ${key} não está definido. Configure-o no .env antes de iniciar o servidor.`);
+    process.exit(1);
+  }
 }
 
 const app = express();
@@ -22,8 +28,6 @@ const PORT = process.env.PORT || 5000;
 app.set('trust proxy', 1); // confiar no X-Forwarded-* do Traefik
 app.use(cors());
 app.use(express.json());
-// Uploads ficam sob /api pra Traefik rotear tudo do backend num PathPrefix só
-app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/digitalcard')

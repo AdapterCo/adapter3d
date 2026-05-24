@@ -18,8 +18,11 @@ services:
       - MONGO_URI=mongodb://mongo:27017/digitalcard
       - JWT_SECRET=${JWT_SECRET}
       - ADMIN_KEY=${ADMIN_KEY}
-    volumes:
-      - backend_uploads:/app/uploads
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - MINIO_BUCKET=${MINIO_BUCKET}
+      - MINIO_PUBLIC_URL=${MINIO_PUBLIC_URL}
     networks:
       - adapter3d_internal
       - traefik9
@@ -73,7 +76,6 @@ services:
 
 volumes:
   mongo_data:
-  backend_uploads:
 
 networks:
   adapter3d_internal:

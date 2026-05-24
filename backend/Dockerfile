@@ -7,8 +7,6 @@ RUN npm ci --omit=dev
 
 COPY . .
 
-RUN mkdir -p /app/uploads
-
 EXPOSE 5000
 
 CMD ["node", "server.js"]

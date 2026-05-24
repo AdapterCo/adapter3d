@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const storage = require('../services/storage');
 
 // Get User by Slug (Public Card View)
 exports.getUserBySlug = async (req, res) => {
@@ -85,19 +86,25 @@ exports.updateUser = async (req, res) => {
   }
 };
 
-// Upload Avatar or Background Image
+// Upload image to MinIO and return the public URL
 exports.uploadImage = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' });
     }
+    if (!req.file.mimetype?.startsWith('image/')) {
+      return res.status(400).json({ message: 'Apenas imagens são aceitas.' });
+    }
 
-    // URL relativa (mesmo domínio em prod via Traefik; em dev o axios resolve absoluto)
-    const fileUrl = `/api/uploads/${req.file.filename}`;
+    const { url } = await storage.uploadBuffer(
+      req.file.buffer,
+      req.file.originalname,
+      req.file.mimetype
+    );
 
-    res.json({ url: fileUrl });
+    res.json({ url });
   } catch (error) {
     console.error('Error in uploadImage:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Erro ao enviar imagem.' });
   }
 };
