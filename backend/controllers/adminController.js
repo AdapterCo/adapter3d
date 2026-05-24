@@ -1,6 +1,8 @@
 const crypto = require('crypto');
 const Tag = require('../models/Tag');
 
+const VALID_PROFILE_TYPES = ['business', 'pet', 'menu', 'storefront'];
+
 // POST /api/admin/tags
 // Aceita 3 formatos no body:
 //   { ids: ["tag-abc", "tag-xyz"] }                  → cria essas IDs específicas
@@ -10,8 +12,8 @@ exports.createTags = async (req, res) => {
   try {
     const { ids, prefix, count, padding = 3, notes = '', profileType = 'business' } = req.body || {};
 
-    if (!['business', 'pet'].includes(profileType)) {
-      return res.status(400).json({ message: 'profileType inválido. Use "business" ou "pet".' });
+    if (!VALID_PROFILE_TYPES.includes(profileType)) {
+      return res.status(400).json({ message: `profileType inválido. Use ${VALID_PROFILE_TYPES.map(t => `"${t}"`).join(', ')}.` });
     }
 
     let tagIds = [];
@@ -63,14 +65,14 @@ exports.createTags = async (req, res) => {
   }
 };
 
-// GET /api/admin/tags?status=free|activated|all&type=business|pet|all (defaults: all)
+// GET /api/admin/tags?status=free|activated|all&type=business|pet|menu|storefront|all (defaults: all)
 exports.listTags = async (req, res) => {
   try {
     const { status = 'all', type = 'all' } = req.query;
     const filter = {};
     if (status === 'free') filter.isActivated = false;
     else if (status === 'activated') filter.isActivated = true;
-    if (type === 'business' || type === 'pet') filter.profileType = type;
+    if (VALID_PROFILE_TYPES.includes(type)) filter.profileType = type;
     const tags = await Tag.find(filter)
       .populate('activatedBy', 'slug email')
       .sort({ createdAt: -1 })
