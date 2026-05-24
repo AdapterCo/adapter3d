@@ -214,13 +214,31 @@ export default function Admin() {
           {activeTab === 'basic' && (
             <div className="space-y-6 max-w-2xl">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Link Personalizado (URL)</label>
-                <div className="flex rounded-lg border border-gray-300 focus-within:ring-2 focus-within:ring-blue-500 overflow-hidden bg-gray-50">
-                  <span className="px-3 py-2 text-gray-500 bg-gray-100 text-sm flex-shrink-0 select-none border-r">
-                    {window.location.host}/
-                  </span>
-                  <input type="text" name="slug" value={data.slug} onChange={handleChange} className="w-full px-3 py-2 bg-transparent outline-none text-gray-900" />
-                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {isPet ? 'Link do Pet (fixo)' : 'Link Personalizado (URL)'}
+                </label>
+                {isPet ? (
+                  <>
+                    <div className="flex rounded-lg border border-gray-300 overflow-hidden bg-gray-100">
+                      <span className="px-3 py-2 text-gray-500 bg-gray-100 text-sm flex-shrink-0 select-none border-r">
+                        {window.location.host}/
+                      </span>
+                      <div className="w-full px-3 py-2 text-gray-700 font-mono text-sm">
+                        {data.slug}
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Link fixo, gravado no QR da peça. Não pode ser alterado.
+                    </p>
+                  </>
+                ) : (
+                  <div className="flex rounded-lg border border-gray-300 focus-within:ring-2 focus-within:ring-blue-500 overflow-hidden bg-gray-50">
+                    <span className="px-3 py-2 text-gray-500 bg-gray-100 text-sm flex-shrink-0 select-none border-r">
+                      {window.location.host}/
+                    </span>
+                    <input type="text" name="slug" value={data.slug} onChange={handleChange} className="w-full px-3 py-2 bg-transparent outline-none text-gray-900" />
+                  </div>
+                )}
               </div>
               {!isPet && (
                 <div>

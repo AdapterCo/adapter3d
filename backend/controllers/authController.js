@@ -59,7 +59,7 @@ exports.register = async (req, res) => {
   try {
     const { id, email, password, slug, profileType, pet, name } = req.body;
 
-    if (!id || !email || !password || !slug) {
+    if (!id || !email || !password) {
       return res.status(400).json({ message: 'Todos os campos são obrigatórios.' });
     }
 
@@ -80,15 +80,21 @@ exports.register = async (req, res) => {
     }
     const resolvedType = claimedTag.profileType;
 
+    // Pet: slug é fixo = tagId (URL gravada no QR da peça). Business: usa o slug escolhido pelo usuário.
+    const resolvedSlug = resolvedType === 'pet' ? id : slug;
+    if (!resolvedSlug) {
+      throw { _userError: 'Complemento (URL) é obrigatório.' };
+    }
+
     // Checagens de email/slug (depois da reivindicação pra evitar race)
     if (await User.findOne({ email })) {
       throw { _userError: 'Este email já está em uso.' };
     }
-    if (await User.findOne({ slug })) {
+    if (await User.findOne({ slug: resolvedSlug })) {
       throw { _userError: 'Este complemento (URL) já está em uso.' };
     }
 
-    const userPayload = { id, email, password, slug, profileType: resolvedType };
+    const userPayload = { id, email, password, slug: resolvedSlug, profileType: resolvedType };
     if (resolvedType === 'pet') {
       // Pet profile: name é o nome do pet, pet.* contém o resto
       if (pet && typeof pet === 'object') userPayload.pet = pet;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PawPrint, ArrowLeft } from 'lucide-react';
 import api from '../services/api';
@@ -10,30 +10,14 @@ const SPECIES = [
   { value: 'other', label: 'Outro' }
 ];
 
-// rex + bulldog → rex-bulldog. Sanitiza pra slug-safe.
-function suggestSlug(name, breed) {
-  const norm = (s) => String(s || '')
-    .toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  const n = norm(name);
-  const b = norm(breed);
-  if (n && b) return `${n}-${b}`;
-  if (n) return n;
-  return '';
-}
-
 export default function RegisterPet({ tagId }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [slugTouched, setSlugTouched] = useState(false);
 
   const [form, setForm] = useState({
     email: '',
     password: '',
-    slug: '',
     pet: {
       name: '',
       species: 'dog',
@@ -41,14 +25,6 @@ export default function RegisterPet({ tagId }) {
       owner: { name: '', whatsapp: '' }
     }
   });
-
-  // Sugere slug automaticamente enquanto o usuário não editar manualmente
-  useEffect(() => {
-    if (!slugTouched) {
-      const s = suggestSlug(form.pet.name, form.pet.breed);
-      if (s) setForm(prev => ({ ...prev, slug: s }));
-    }
-  }, [form.pet.name, form.pet.breed, slugTouched]);
 
   const handlePet = (field, value) => {
     setForm(prev => ({ ...prev, pet: { ...prev.pet, [field]: value } }));
@@ -59,11 +35,6 @@ export default function RegisterPet({ tagId }) {
       pet: { ...prev.pet, owner: { ...prev.pet.owner, [field]: value } }
     }));
   };
-  const handleSlug = (value) => {
-    setSlugTouched(true);
-    const formatted = value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-');
-    setForm(prev => ({ ...prev, slug: formatted }));
-  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -71,15 +42,16 @@ export default function RegisterPet({ tagId }) {
 
     if (!form.pet.name.trim()) return setError('Informe o nome do pet.');
     if (!form.pet.owner.whatsapp.trim()) return setError('Informe o WhatsApp do tutor (essencial pra te avisarem se o pet for encontrado).');
-    if (!form.email || !form.password || !form.slug) return setError('Preencha email, senha e link.');
+    if (!form.email || !form.password) return setError('Preencha email e senha.');
 
     setLoading(true);
     try {
+      // Slug do pet = tagId. URL é fixa, gravada no QR da peça.
       const payload = {
         id: tagId,
         email: form.email,
         password: form.password,
-        slug: form.slug,
+        slug: tagId,
         profileType: 'pet',
         pet: form.pet
       };
@@ -213,20 +185,16 @@ export default function RegisterPet({ tagId }) {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Link do pet</label>
-              <div className="flex rounded-lg border border-gray-300 focus-within:ring-2 focus-within:ring-orange-500 overflow-hidden bg-gray-50">
+              <div className="flex rounded-lg border border-gray-300 overflow-hidden bg-gray-100">
                 <span className="px-3 py-2 text-gray-500 bg-gray-100 text-sm flex-shrink-0 select-none border-r">
                   adapterco.com.br/
                 </span>
-                <input
-                  type="text" value={form.slug}
-                  onChange={(e) => handleSlug(e.target.value)}
-                  placeholder="rex-bulldog"
-                  className="w-full px-3 py-2 bg-transparent outline-none text-gray-900"
-                  required
-                />
+                <div className="w-full px-3 py-2 text-gray-700 font-mono text-sm">
+                  {tagId}
+                </div>
               </div>
               <p className="text-xs text-gray-500 mt-1">
-                Sugerido automaticamente. Você pode editar.
+                Link fixo, gravado no QR da sua peça.
               </p>
             </div>
           </section>
