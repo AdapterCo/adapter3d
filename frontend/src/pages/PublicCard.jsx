@@ -3,6 +3,8 @@ import { useParams } from 'react-router-dom';
 import { Share2, Link as LinkIcon, Phone, MessageCircle } from 'lucide-react';
 import api from '../services/api';
 import PetProfile from './PetProfile';
+import MenuProfile from './MenuProfile';
+import StorefrontProfile from './StorefrontProfile';
 
 // Brand icons (lucide-react 1.16 doesn't ship these — inline SVGs keep the build working)
 const Instagram = ({ className }) => (
@@ -76,9 +78,15 @@ export default function PublicCard({ previewData }) {
     return <div className="min-h-screen flex items-center justify-center">Perfil não encontrado.</div>;
   }
 
-  // Pet profiles use a dedicated layout (with lost-mode takeover).
+  // Variantes por profileType — cada uma tem layout próprio.
   if (data.profileType === 'pet') {
     return <PetProfile data={data} />;
+  }
+  if (data.profileType === 'menu') {
+    return <MenuProfile data={data} />;
+  }
+  if (data.profileType === 'storefront') {
+    return <StorefrontProfile data={data} />;
   }
 
   const { theme } = data;
