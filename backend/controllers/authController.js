@@ -80,7 +80,8 @@ exports.register = async (req, res) => {
     }
     const resolvedType = claimedTag.profileType;
 
-    // Pet: slug é fixo = tagId (URL gravada no QR da peça). Business: usa o slug escolhido pelo usuário.
+    // Pet: slug é fixo = tagId (URL gravada no QR da coleira).
+    // Business/Menu/Storefront: usuário escolhe slug bonito (a peça/QR é gerada DEPOIS).
     const resolvedSlug = resolvedType === 'pet' ? id : slug;
     if (!resolvedSlug) {
       throw { _userError: 'Complemento (URL) é obrigatório.' };

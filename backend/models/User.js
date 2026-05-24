@@ -6,6 +6,22 @@ const linkSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true }
 });
 
+// Categoria de produto (ex: "Lanches", "Bebidas"). _id é gerado automaticamente
+// e referenciado por productSchema.categoryId.
+const categorySchema = new mongoose.Schema({
+  name: { type: String, required: true, trim: true, maxlength: 50 },
+  order: { type: Number, default: 0 }
+});
+
+// Produto exibido no cardápio/vitrine. Preço em CENTAVOS (evita float).
+const productSchema = new mongoose.Schema({
+  name: { type: String, required: true, trim: true, maxlength: 100 },
+  price: { type: Number, min: 0, default: 0 },
+  image: { type: String, default: '' },
+  categoryId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  order: { type: Number, default: 0 }
+}, { timestamps: true });
+
 const petSchema = new mongoose.Schema({
   name: { type: String, default: '' },
   species: { type: String, enum: ['dog', 'cat', 'bird', 'other'], default: 'dog' },
@@ -43,7 +59,7 @@ const userSchema = new mongoose.Schema({
   slug: { type: String, required: true, unique: true }, // The custom URL
 
   // Which kind of profile this user owns. Locked to the Tag's profileType at registration.
-  profileType: { type: String, enum: ['business', 'pet'], required: true, default: 'business', index: true },
+  profileType: { type: String, enum: ['business', 'pet', 'menu', 'storefront'], required: true, default: 'business', index: true },
 
   name: { type: String, default: 'Nome do Usuário' },
   avatar: { type: String, default: '' },
@@ -65,6 +81,17 @@ const userSchema = new mongoose.Schema({
 
   // Pet-specific block (only meaningful when profileType === 'pet')
   pet: { type: petSchema, default: () => ({}) },
+
+  // Menu/Storefront-specific (only meaningful when profileType is 'menu' or 'storefront')
+  categories: { type: [categorySchema], default: [] },
+  products: {
+    type: [productSchema],
+    default: [],
+    validate: {
+      validator: (arr) => !Array.isArray(arr) || arr.length <= 30,
+      message: 'Máximo de 30 produtos por estabelecimento.'
+    }
+  },
 
   // Theme configuration
   theme: {

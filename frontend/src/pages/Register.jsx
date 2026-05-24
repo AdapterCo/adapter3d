@@ -29,7 +29,7 @@ export default function Register() {
     }
   }, [location, navigate]);
 
-  // Pet tags use a dedicated form (name, species, owner contact, suggested slug).
+  // Pet tags use a dedicated form (name, species, owner contact).
   if (profileType === 'pet' && formData.id) {
     return <RegisterPet tagId={formData.id} />;
   }
@@ -48,7 +48,7 @@ export default function Register() {
   const handleRegister = async (e) => {
     e.preventDefault();
     setError('');
-    
+
     if (!formData.slug || !formData.email || !formData.password) {
       setError('Preencha todos os campos.');
       return;
@@ -56,7 +56,10 @@ export default function Register() {
 
     setLoading(true);
     try {
-      const response = await api.post('/auth/register', { ...formData, profileType: 'business' });
+      const response = await api.post('/auth/register', {
+        ...formData,
+        profileType: profileType || 'business'
+      });
       // Save token
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));

@@ -52,7 +52,7 @@ exports.updateUser = async (req, res) => {
     delete updates.profileType;
 
     if (updates.slug) {
-      // Pet: slug é fixo (= tagId, gravado no QR da peça). Ignora qualquer tentativa de mudar.
+      // Pet: slug é fixo (= tagId, gravado no QR da coleira). Ignora qualquer tentativa de mudar.
       const currentUser = await User.findOne({ id }).select('profileType slug');
       if (currentUser?.profileType === 'pet') {
         delete updates.slug;
