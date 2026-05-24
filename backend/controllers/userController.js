@@ -37,6 +37,7 @@ exports.getUserByTagId = async (req, res) => {
 
 const RESERVED_SLUGS = new Set(['admin', 'register', 'tag', 'api', 'login', 'uploads', 'auth']);
 const SLUG_REGEX = /^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$/;
+const OBJECT_ID_REGEX = /^[0-9a-fA-F]{24}$/;
 
 // Coleta toda URL de imagem referenciada pelo usuário (avatar, background, fotos
 // de produto). Set deduplica caso a mesma URL esteja em vários lugares.
@@ -76,6 +77,15 @@ exports.updateUser = async (req, res) => {
     delete updates.password;
     delete updates.id;
     delete updates.profileType;
+
+    // Sanitiza categoryId em produtos: qualquer valor que não seja ObjectId válido
+    // (ex: "undefined" vindo de categoria recém-criada sem _id) vira null.
+    if (Array.isArray(updates.products)) {
+      updates.products = updates.products.map((p) => ({
+        ...p,
+        categoryId: p?.categoryId && OBJECT_ID_REGEX.test(String(p.categoryId)) ? p.categoryId : null
+      }));
+    }
 
     if (updates.slug) {
       // Pet: slug é fixo (= tagId, gravado no QR da coleira). Ignora qualquer tentativa de mudar.

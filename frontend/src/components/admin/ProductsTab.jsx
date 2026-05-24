@@ -1,6 +1,6 @@
 import { Trash2, ArrowUp, ArrowDown, ImageIcon } from 'lucide-react';
 import api from '../../services/api';
-import { centsToInput, inputToCents } from './utils';
+import { centsToInput, inputToCents, newObjectId } from './utils';
 
 const MAX_PRODUCTS = 30;
 
@@ -11,7 +11,9 @@ export default function ProductsTab({ data, setData }) {
 
   const addProduct = () => {
     if (atLimit) return;
-    const next = [...products, { name: '', price: 0, image: '', categoryId: null, order: products.length }];
+    // _id no cliente mantém a React key estável (sem remount ao salvar) e segue
+    // o mesmo padrão das categorias.
+    const next = [...products, { _id: newObjectId(), name: '', price: 0, image: '', categoryId: null, order: products.length }];
     setData({ ...data, products: next });
   };
 

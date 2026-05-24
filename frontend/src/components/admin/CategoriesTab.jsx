@@ -1,10 +1,13 @@
 import { Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { newObjectId } from './utils';
 
 export default function CategoriesTab({ data, setData }) {
   const categories = data.categories || [];
 
   const addCategory = () => {
-    const next = [...categories, { name: '', order: categories.length }];
+    // _id gerado no cliente pra que produtos possam referenciar essa categoria
+    // antes do primeiro save.
+    const next = [...categories, { _id: newObjectId(), name: '', order: categories.length }];
     setData({ ...data, categories: next });
   };
 

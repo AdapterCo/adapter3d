@@ -34,3 +34,17 @@ export function inputToCents(value) {
   const digits = String(value || '').replace(/\D/g, '');
   return digits === '' ? 0 : parseInt(digits, 10);
 }
+
+// Gera um ObjectId válido (24 chars hex) no cliente. Permite que categorias/produtos
+// recém-criados sejam referenciados imediatamente — antes do primeiro save —
+// sem cair em `categoryId: "undefined"`.
+export function newObjectId() {
+  const bytes = new Uint8Array(12);
+  const ts = Math.floor(Date.now() / 1000);
+  bytes[0] = (ts >> 24) & 0xff;
+  bytes[1] = (ts >> 16) & 0xff;
+  bytes[2] = (ts >> 8) & 0xff;
+  bytes[3] = ts & 0xff;
+  crypto.getRandomValues(bytes.subarray(4));
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
