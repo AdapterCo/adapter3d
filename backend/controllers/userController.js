@@ -38,6 +38,32 @@ exports.getUserByTagId = async (req, res) => {
 const RESERVED_SLUGS = new Set(['admin', 'register', 'tag', 'api', 'login', 'uploads', 'auth']);
 const SLUG_REGEX = /^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$/;
 
+// Coleta toda URL de imagem referenciada pelo usuário (avatar, background, fotos
+// de produto). Set deduplica caso a mesma URL esteja em vários lugares.
+function collectImageUrls(user) {
+  const urls = new Set();
+  if (user?.avatar) urls.add(user.avatar);
+  if (user?.theme?.backgroundImage) urls.add(user.theme.backgroundImage);
+  for (const p of (user?.products || [])) {
+    if (p?.image) urls.add(p.image);
+  }
+  return urls;
+}
+
+// Deleta do MinIO toda imagem que existia em `before` e sumiu em `after`.
+// Fire-and-forget: erros só logam, não bloqueiam a resposta do save.
+function cleanupOrphanedImages(before, after) {
+  const oldUrls = collectImageUrls(before);
+  const newUrls = collectImageUrls(after);
+  for (const url of oldUrls) {
+    if (!newUrls.has(url)) {
+      storage.deleteByUrl(url).catch(err =>
+        console.warn('Falha ao deletar imagem órfã do MinIO:', url, err.message)
+      );
+    }
+  }
+}
+
 // Update User Data
 exports.updateUser = async (req, res) => {
   try {
@@ -69,6 +95,11 @@ exports.updateUser = async (req, res) => {
       }
     }
 
+    // Snapshot anterior pra detectar imagens órfãs depois do update.
+    const before = await User.findOne({ id })
+      .select('avatar theme.backgroundImage products.image')
+      .lean();
+
     const user = await User.findOneAndUpdate(
       { id },
       { $set: updates },
@@ -78,6 +109,8 @@ exports.updateUser = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
+
+    cleanupOrphanedImages(before, user.toObject());
 
     res.json(user);
   } catch (error) {
