@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AlertTriangle, MessageCircle, Phone, MapPin, Stethoscope, Share2, ChevronDown, ChevronUp, PawPrint } from 'lucide-react';
+import { buildWhatsappLink } from '../components/admin/utils';
 
 const SPECIES_LABEL = { dog: 'Cachorro', cat: 'Gato', bird: 'Ave', other: 'Pet' };
 
@@ -15,11 +16,6 @@ function ageFromBirth(birthDate) {
   }
   const y = Math.floor(years);
   return `${y} ${y === 1 ? 'ano' : 'anos'}`;
-}
-
-function waLink(number) {
-  const clean = String(number || '').replace(/\D/g, '');
-  return `https://wa.me/${clean}`;
 }
 
 export default function PetProfile({ data }) {
@@ -80,7 +76,7 @@ export default function PetProfile({ data }) {
 
           <div className="mt-7 w-full space-y-3">
             {owner.whatsapp && (
-              <a href={waLink(owner.whatsapp)} target="_blank" rel="noopener noreferrer"
+              <a href={buildWhatsappLink(owner.whatsapp)} target="_blank" rel="noopener noreferrer"
                  className="flex items-center justify-center p-4 rounded-2xl bg-green-500 hover:bg-green-600 text-white font-bold text-lg shadow-lg transition-all">
                 <MessageCircle className="w-6 h-6 mr-3" />
                 Avisar o tutor (WhatsApp)
@@ -149,7 +145,7 @@ export default function PetProfile({ data }) {
 
         <div className="w-full space-y-4 relative z-10">
           {owner.whatsapp && (
-            <a href={waLink(owner.whatsapp)} target="_blank" rel="noopener noreferrer"
+            <a href={buildWhatsappLink(owner.whatsapp)} target="_blank" rel="noopener noreferrer"
                className="flex items-center justify-center p-4 rounded-xl shadow-sm hover:scale-[1.02] transition-all"
                style={buttonStyle}>
               <MessageCircle className="w-5 h-5 mr-3" />

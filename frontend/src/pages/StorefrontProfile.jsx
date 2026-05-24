@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Share2, MessageCircle, X, ImageIcon } from 'lucide-react';
-import { centsToBRL } from '../components/admin/utils';
+import { centsToBRL, buildWhatsappLink } from '../components/admin/utils';
 
 export default function StorefrontProfile({ data }) {
   const { theme } = data;
@@ -24,11 +24,10 @@ export default function StorefrontProfile({ data }) {
 
   const selected = products.find(p => String(p._id) === selectedId);
 
-  const buildWhatsappLink = (product) => {
+  const buildProductWhatsappLink = (product) => {
     if (!data.whatsapp) return null;
-    const clean = data.whatsapp.replace(/\D/g, '');
     const msg = `Olá! Tenho interesse em: ${product.name} (${centsToBRL(product.price)})`;
-    return `https://wa.me/${clean}?text=${encodeURIComponent(msg)}`;
+    return buildWhatsappLink(data.whatsapp, msg);
   };
 
   const handleShare = () => {
@@ -145,7 +144,7 @@ export default function StorefrontProfile({ data }) {
 
               {data.whatsapp ? (
                 <a
-                  href={buildWhatsappLink(selected)}
+                  href={buildProductWhatsappLink(selected)}
                   target="_blank" rel="noopener noreferrer"
                   className="mt-5 w-full flex items-center justify-center p-3 rounded-xl font-medium shadow-sm hover:scale-[1.02] transition-all"
                   style={buttonStyle}

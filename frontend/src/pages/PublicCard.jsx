@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Share2, Link as LinkIcon, Phone, MessageCircle } from 'lucide-react';
 import api from '../services/api';
+import { buildWhatsappLink } from '../components/admin/utils';
 import PetProfile from './PetProfile';
 import MenuProfile from './MenuProfile';
 import StorefrontProfile from './StorefrontProfile';
@@ -118,18 +119,13 @@ export default function PublicCard({ previewData }) {
     setTimeout(() => setCopiedPix(false), 2000);
   };
 
-  const getWhatsappLink = (number) => {
-    const cleanNumber = number.replace(/\D/g, '');
-    return `https://wa.me/${cleanNumber}`;
-  };
-
   return (
     <div className="min-h-screen relative flex justify-center w-full" style={backgroundStyle}>
       <div className="max-w-md w-full px-6 py-12 flex flex-col items-center">
-        
+
         {/* Header */}
         <div className="flex justify-end w-full mb-6 relative z-10">
-          <button 
+          <button
             onClick={handleShare}
             className="p-2 rounded-full bg-black/10 backdrop-blur-sm hover:bg-black/20 transition-all"
             style={textStyle}
@@ -152,9 +148,9 @@ export default function PublicCard({ previewData }) {
 
         {/* Links */}
         <div className="w-full space-y-4 relative z-10">
-          
+
           {data.whatsapp && (
-            <a href={getWhatsappLink(data.whatsapp)} target="_blank" rel="noopener noreferrer" 
+            <a href={buildWhatsappLink(data.whatsapp)} target="_blank" rel="noopener noreferrer"
                className="flex items-center justify-center p-4 rounded-xl shadow-sm hover:scale-[1.02] transition-all"
                style={buttonStyle}>
               <MessageCircle className="w-5 h-5 mr-3" />

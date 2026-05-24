@@ -35,6 +35,23 @@ export function inputToCents(value) {
   return digits === '' ? 0 : parseInt(digits, 10);
 }
 
+// Monta link wa.me/+55... a partir do que o usuário digitou no campo WhatsApp.
+// Usuário tipicamente digita só DDD+numero ("11999999999"). wa.me exige código
+// do país, então prefixamos "55" quando ele não está presente. Se o usuário já
+// digitou com "55" (ou "+55"), respeitamos.
+export function buildWhatsappLink(rawNumber, message) {
+  if (!rawNumber) return null;
+  let digits = String(rawNumber).replace(/\D/g, '');
+  if (!digits) return null;
+  // Brasil tem 10 (fixo) ou 11 (celular com 9) dígitos com DDD.
+  // Com 55 na frente vira 12 ou 13. Se não bate, prepende 55.
+  if (!(digits.startsWith('55') && (digits.length === 12 || digits.length === 13))) {
+    digits = '55' + digits;
+  }
+  const base = `https://wa.me/${digits}`;
+  return message ? `${base}?text=${encodeURIComponent(message)}` : base;
+}
+
 // Gera um ObjectId válido (24 chars hex) no cliente. Permite que categorias/produtos
 // recém-criados sejam referenciados imediatamente — antes do primeiro save —
 // sem cair em `categoryId: "undefined"`.
