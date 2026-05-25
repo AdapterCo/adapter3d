@@ -102,9 +102,12 @@ export default function StorefrontProfile({ data }) {
                 </div>
                 <div className="p-3">
                   <h3 className="font-medium text-sm text-gray-900 line-clamp-2 min-h-[2.5rem]">{p.name || '(sem nome)'}</h3>
-                  <p className="font-bold mt-1 text-base" style={{ color: theme.buttonColor }}>
+                  <p className="font-bold mt-1 text-base animate-pulse-once" style={{ color: theme.buttonColor }}>
                     {centsToBRL(p.price)}
                   </p>
+                  <div className="mt-2 text-center py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90 flex items-center justify-center gap-1" style={buttonStyle}>
+                    Comprar
+                  </div>
                 </div>
               </button>
             ))}
