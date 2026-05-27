@@ -10,7 +10,8 @@ const linkSchema = new mongoose.Schema({
 // e referenciado por productSchema.categoryId.
 const categorySchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true, maxlength: 50 },
-  order: { type: Number, default: 0 }
+  order: { type: Number, default: 0 },
+  isVisible: { type: Boolean, default: true }
 });
 
 // Produto exibido no cardápio/vitrine. Preço em CENTAVOS (evita float).
@@ -19,7 +20,8 @@ const productSchema = new mongoose.Schema({
   price: { type: Number, min: 0, default: 0 },
   image: { type: String, default: '' },
   categoryId: { type: mongoose.Schema.Types.ObjectId, default: null },
-  order: { type: Number, default: 0 }
+  order: { type: Number, default: 0 },
+  isVisible: { type: Boolean, default: true }
 }, { timestamps: true });
 
 const petSchema = new mongoose.Schema({

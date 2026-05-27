@@ -3,8 +3,19 @@ import { centsToBRL } from '../components/admin/utils';
 
 export default function MenuProfile({ data }) {
   const { theme } = data;
-  const products = (data.products || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  const categories = (data.categories || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const visibleCategories = (data.categories || []).filter(c => c.isVisible !== false);
+  const visibleCategoryIds = new Set(visibleCategories.map(c => String(c._id)));
+
+  const products = (data.products || [])
+    .filter(p => {
+      if (p.isVisible === false) return false;
+      if (p.categoryId && !visibleCategoryIds.has(String(p.categoryId))) return false;
+      return true;
+    })
+    .slice()
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  const categories = visibleCategories.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   const backgroundStyle = {
     background: theme.backgroundType === 'gradient' ? theme.backgroundGradient

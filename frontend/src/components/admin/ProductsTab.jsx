@@ -1,4 +1,4 @@
-import { Trash2, ArrowUp, ArrowDown, ImageIcon } from 'lucide-react';
+import { Trash2, ArrowUp, ArrowDown, ImageIcon, Eye, EyeOff } from 'lucide-react';
 import api from '../../services/api';
 import { centsToInput, inputToCents, newObjectId } from './utils';
 
@@ -13,7 +13,7 @@ export default function ProductsTab({ data, setData }) {
     if (atLimit) return;
     // _id no cliente mantém a React key estável (sem remount ao salvar) e segue
     // o mesmo padrão das categorias.
-    const next = [...products, { _id: newObjectId(), name: '', price: 0, image: '', categoryId: null, order: products.length }];
+    const next = [...products, { _id: newObjectId(), name: '', price: 0, image: '', categoryId: null, order: products.length, isVisible: true }];
     setData({ ...data, products: next });
   };
 
@@ -103,7 +103,7 @@ export default function ProductsTab({ data, setData }) {
                   placeholder="Nome do produto"
                   className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div className="flex rounded-lg border overflow-hidden bg-white focus-within:ring-2 focus-within:ring-blue-500">
                     <span className="px-2 py-2 text-gray-500 bg-gray-100 text-sm select-none border-r">R$</span>
                     <input
@@ -123,6 +123,19 @@ export default function ProductsTab({ data, setData }) {
                       <option key={c._id} value={String(c._id)}>{c.name || '(sem nome)'}</option>
                     ))}
                   </select>
+                  <button
+                    type="button"
+                    onClick={() => updateProduct(index, 'isVisible', p.isVisible === false ? true : false)}
+                    className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
+                      p.isVisible !== false
+                        ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
+                        : 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-200'
+                    }`}
+                    title={p.isVisible !== false ? 'Produto visível no perfil público' : 'Produto oculto no perfil público'}
+                  >
+                    {p.isVisible !== false ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                    <span>{p.isVisible !== false ? 'Visível' : 'Oculto'}</span>
+                  </button>
                 </div>
               </div>
 

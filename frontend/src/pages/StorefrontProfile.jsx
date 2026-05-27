@@ -4,8 +4,19 @@ import { centsToBRL, buildWhatsappLink } from '../components/admin/utils';
 
 export default function StorefrontProfile({ data }) {
   const { theme } = data;
-  const products = (data.products || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  const categories = (data.categories || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const visibleCategories = (data.categories || []).filter(c => c.isVisible !== false);
+  const visibleCategoryIds = new Set(visibleCategories.map(c => String(c._id)));
+
+  const products = (data.products || [])
+    .filter(p => {
+      if (p.isVisible === false) return false;
+      if (p.categoryId && !visibleCategoryIds.has(String(p.categoryId))) return false;
+      return true;
+    })
+    .slice()
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  const categories = visibleCategories.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   const [selectedId, setSelectedId] = useState(null);
   const [activeCategory, setActiveCategory] = useState('all');

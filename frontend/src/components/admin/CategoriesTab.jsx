@@ -1,4 +1,4 @@
-import { Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { Trash2, ArrowUp, ArrowDown, Eye, EyeOff } from 'lucide-react';
 import { newObjectId } from './utils';
 
 export default function CategoriesTab({ data, setData }) {
@@ -7,7 +7,7 @@ export default function CategoriesTab({ data, setData }) {
   const addCategory = () => {
     // _id gerado no cliente pra que produtos possam referenciar essa categoria
     // antes do primeiro save.
-    const next = [...categories, { _id: newObjectId(), name: '', order: categories.length }];
+    const next = [...categories, { _id: newObjectId(), name: '', order: categories.length, isVisible: true }];
     setData({ ...data, categories: next });
   };
 
@@ -77,6 +77,18 @@ export default function CategoriesTab({ data, setData }) {
               placeholder="Nome da categoria"
               className="flex-grow px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
             />
+            <button
+              type="button"
+              onClick={() => updateCategory(index, 'isVisible', cat.isVisible === false ? true : false)}
+              className={`p-2 border rounded-lg transition-all ${
+                cat.isVisible !== false
+                  ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
+                  : 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-200'
+              }`}
+              title={cat.isVisible !== false ? 'Categoria visível no perfil público' : 'Categoria oculta no perfil público'}
+            >
+              {cat.isVisible !== false ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+            </button>
             <button
               onClick={() => removeCategory(index)}
               className="p-2 text-red-500 hover:bg-red-100 rounded"
