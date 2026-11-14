@@ -2,15 +2,28 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Tag = require('../models/Tag');
+const {
+  MIN_PASSWORD_LENGTH,
+  EMAIL_COLLATION,
+  normalizeEmail,
+  isValidEmail,
+  normalizeSlug,
+  isValidSlug
+} = require('../utils/validation');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
 // Login User
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { password } = req.body || {};
+    const email = normalizeEmail(req.body?.email);
+    if (!email || typeof password !== 'string') {
+      return res.status(400).json({ message: 'Credenciais inválidas' });
+    }
 
-    let user = await User.findOne({ email });
+    // Collation case-insensitive cobre contas antigas salvas com maiúsculas.
+    let user = await User.findOne({ email }).collation(EMAIL_COLLATION);
     if (!user) {
       return res.status(400).json({ message: 'Credenciais inválidas' });
     }
@@ -57,10 +70,18 @@ exports.validateTag = async (req, res) => {
 exports.register = async (req, res) => {
   let claimedTag = null;
   try {
-    const { id, email, password, slug, profileType, pet, name } = req.body;
+    const { id, password, profileType, pet, name } = req.body || {};
+    const email = normalizeEmail(req.body?.email);
+    const slug = normalizeSlug(req.body?.slug);
 
     if (!id || !email || !password) {
       return res.status(400).json({ message: 'Todos os campos são obrigatórios.' });
+    }
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ message: 'Email inválido.' });
+    }
+    if (typeof password !== 'string' || password.length < MIN_PASSWORD_LENGTH) {
+      return res.status(400).json({ message: `A senha precisa ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.` });
     }
 
     // Reivindica a tag de forma atômica: só dá certo se ela existir E estiver livre.
@@ -86,9 +107,15 @@ exports.register = async (req, res) => {
     if (!resolvedSlug) {
       throw { _userError: 'Complemento (URL) é obrigatório.' };
     }
+    // Pet usa o ID da tag (definido por nós); os demais passam pela mesma
+    // regra da edição de perfil: 3-32 caracteres, a-z, 0-9 e hífen, sem
+    // palavras reservadas como "admin" ou "api".
+    if (resolvedType !== 'pet' && !isValidSlug(resolvedSlug)) {
+      throw { _userError: 'Complemento (URL) inválido. Use de 3 a 32 letras minúsculas, números ou hífen (sem começar/terminar com hífen).' };
+    }
 
     // Checagens de email/slug (depois da reivindicação pra evitar race)
-    if (await User.findOne({ email })) {
+    if (await User.findOne({ email }).collation(EMAIL_COLLATION)) {
       throw { _userError: 'Este email já está em uso.' };
     }
     if (await User.findOne({ slug: resolvedSlug })) {

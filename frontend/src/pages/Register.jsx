@@ -53,6 +53,10 @@ export default function Register() {
       setError('Preencha todos os campos.');
       return;
     }
+    if (formData.password.length < 8) {
+      setError('A senha precisa ter pelo menos 8 caracteres.');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -128,7 +132,7 @@ export default function Register() {
               placeholder="••••••••"
               className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
               required
-              minLength={6}
+              minLength={8}
             />
           </div>
 

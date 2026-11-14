@@ -7,6 +7,7 @@ const userController = require('../controllers/userController');
 const adminController = require('../controllers/adminController');
 const auth = require('../middleware/authMiddleware');
 const adminAuth = require('../middleware/adminAuth');
+const rateLimit = require('../middleware/rateLimit');
 
 // Uploads vão direto pro MinIO. Multer só parseia o multipart em memória.
 const upload = multer({
@@ -14,17 +15,36 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 } // 5 MB por arquivo
 });
 
+// Limites por IP contra força bruta de senha e enumeração de IDs de tag.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, max: 10,
+  message: 'Muitas tentativas de login. Aguarde alguns minutos e tente novamente.'
+});
+const tagLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, max: 20,
+  message: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.'
+});
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, max: 10,
+  message: 'Muitos cadastros a partir desta rede. Tente novamente mais tarde.'
+});
+
 // Auth Routes
-router.post('/auth/login', authController.login);
-router.post('/auth/validate-tag', authController.validateTag);
-router.post('/auth/register', authController.register);
+router.post('/auth/login', loginLimiter, authController.login);
+router.post('/auth/validate-tag', tagLimiter, authController.validateTag);
+router.post('/auth/register', registerLimiter, authController.register);
 router.get('/auth/me', auth, authController.getMe);
 
 // Public Card Route (By Slug)
 router.get('/users/slug/:slug', userController.getUserBySlug);
 
 // Tag Redirect Route (Find slug by Tag ID)
-router.get('/users/tag/:id', userController.getUserByTagId);
+// Limite generoso: é a rota que roda a cada leitura de NFC/QR, mas impede
+// varrer milhares de IDs para descobrir quais tags existem.
+router.get('/users/tag/:id', rateLimit({
+  windowMs: 60 * 1000, max: 60,
+  message: 'Muitas requisições. Tente novamente em instantes.'
+}), userController.getUserByTagId);
 
 // Protected User Update Route
 router.put('/users/:id', auth, userController.updateUser);
