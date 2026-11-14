@@ -5,6 +5,7 @@ const multer = require('multer');
 const authController = require('../controllers/authController');
 const userController = require('../controllers/userController');
 const adminController = require('../controllers/adminController');
+const googleReviewController = require('../controllers/googleReviewController');
 const auth = require('../middleware/authMiddleware');
 const adminAuth = require('../middleware/adminAuth');
 const rateLimit = require('../middleware/rateLimit');
@@ -51,6 +52,14 @@ router.put('/users/:id', auth, userController.updateUser);
 
 // Upload Route (auth-protected — só usuários logados podem subir arquivos)
 router.post('/upload', auth, upload.single('image'), userController.uploadImage);
+
+// Avaliação Google: resolve link do Maps → link direto de avaliação (serviço externo).
+// Limitado para não sobrecarregar o serviço de terceiros.
+router.post('/google-review', auth, rateLimit({
+  windowMs: 15 * 60 * 1000, max: 15,
+  message: 'Muitas tentativas de gerar o link. Aguarde alguns minutos.'
+}), googleReviewController.resolve);
+router.delete('/google-review', auth, googleReviewController.remove);
 
 // Admin Routes (protegidas por X-Admin-Key header — sem JWT)
 router.post('/admin/tags', adminAuth, adminController.createTags);

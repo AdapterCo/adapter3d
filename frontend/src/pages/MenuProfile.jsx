@@ -1,5 +1,6 @@
 import { Share2 } from 'lucide-react';
 import { centsToBRL } from '../components/admin/utils';
+import GoogleReviewButton from '../components/GoogleReviewButton';
 
 export default function MenuProfile({ data }) {
   const { theme } = data;
@@ -66,6 +67,12 @@ export default function MenuProfile({ data }) {
           <h1 className="text-2xl font-bold text-center" style={textStyle}>{data.name}</h1>
           <p className="text-sm opacity-70 mt-1" style={textStyle}>Cardápio</p>
         </div>
+
+        <GoogleReviewButton
+          data={data}
+          buttonStyle={{ backgroundColor: theme.buttonColor, color: theme.buttonTextColor }}
+          className="mb-8 -mt-4"
+        />
 
         {/* Conteúdo */}
         {products.length === 0 ? (

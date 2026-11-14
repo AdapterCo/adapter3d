@@ -6,6 +6,7 @@ import { buildWhatsappLink } from '../components/admin/utils';
 import PetProfile from './PetProfile';
 import MenuProfile from './MenuProfile';
 import StorefrontProfile from './StorefrontProfile';
+import GoogleReviewButton from '../components/GoogleReviewButton';
 
 // Brand icons (lucide-react 1.16 doesn't ship these — inline SVGs keep the build working)
 const Instagram = ({ className }) => (
@@ -166,6 +167,8 @@ export default function PublicCard({ previewData }) {
               <span className="font-medium">Ligar Agora</span>
             </a>
           )}
+
+          <GoogleReviewButton data={data} buttonStyle={buttonStyle} />
 
           {data.pix && (
             <button onClick={copyPix}

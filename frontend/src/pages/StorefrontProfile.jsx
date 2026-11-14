@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Share2, MessageCircle, X, ImageIcon } from 'lucide-react';
 import { centsToBRL, buildWhatsappLink } from '../components/admin/utils';
+import GoogleReviewButton from '../components/GoogleReviewButton';
 
 export default function StorefrontProfile({ data }) {
   const { theme } = data;
@@ -71,6 +72,8 @@ export default function StorefrontProfile({ data }) {
           <h1 className="text-2xl font-bold text-center" style={textStyle}>{data.name}</h1>
           <p className="text-sm opacity-70 mt-1" style={textStyle}>Vitrine</p>
         </div>
+
+        <GoogleReviewButton data={data} buttonStyle={buttonStyle} className="mb-6 -mt-2" />
 
         {/* Filtro de categorias (chips) */}
         {categories.length > 0 && (

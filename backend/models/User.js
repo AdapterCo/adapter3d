@@ -81,6 +81,17 @@ const userSchema = new mongoose.Schema({
   // Custom Links
   customLinks: [linkSchema],
 
+  // Botão "Avaliar no Google". Preenchido SÓ pela rota /api/google-review, que
+  // resolve o link do Maps num link direto de avaliação (search.google.com).
+  // Não está na lista de campos editáveis do PUT /users para garantir que o
+  // botão sempre aponte para o Google.
+  googleReview: {
+    mapsUrl: { type: String, default: '' },
+    reviewUrl: { type: String, default: '' },
+    placeId: { type: String, default: '' },
+    businessName: { type: String, default: '' }
+  },
+
   // Pet-specific block (only meaningful when profileType === 'pet')
   pet: { type: petSchema, default: () => ({}) },
 

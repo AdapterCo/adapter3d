@@ -15,12 +15,13 @@ import LostTab from '../components/admin/LostTab';
 import CategoriesTab from '../components/admin/CategoriesTab';
 import ProductsTab from '../components/admin/ProductsTab';
 import ContactTab from '../components/admin/ContactTab';
+import ReviewTab from '../components/admin/ReviewTab';
 
 const TABS_BY_TYPE = {
-  business: ['basic', 'links', 'theme'],
+  business: ['basic', 'links', 'review', 'theme'],
   pet: ['basic', 'pet', 'owner', 'health', 'lost', 'theme'],
-  menu: ['basic', 'categories', 'products', 'theme'],
-  storefront: ['basic', 'categories', 'products', 'contact', 'theme']
+  menu: ['basic', 'categories', 'products', 'review', 'theme'],
+  storefront: ['basic', 'categories', 'products', 'contact', 'review', 'theme']
 };
 
 const TAB_LABEL = {
@@ -33,7 +34,8 @@ const TAB_LABEL = {
   lost: '🆘 Modo Perdido',
   categories: 'Categorias',
   products: 'Produtos',
-  contact: 'Contato'
+  contact: 'Contato',
+  review: '⭐ Avaliação Google'
 };
 
 const TAB_COMPONENT = {
@@ -46,7 +48,8 @@ const TAB_COMPONENT = {
   lost: LostTab,
   categories: CategoriesTab,
   products: ProductsTab,
-  contact: ContactTab
+  contact: ContactTab,
+  review: ReviewTab
 };
 
 export default function Admin() {
