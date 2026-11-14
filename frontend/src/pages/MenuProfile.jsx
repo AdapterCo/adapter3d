@@ -1,6 +1,9 @@
-import { Share2 } from 'lucide-react';
+import { Share2, MapPin, Plus } from 'lucide-react';
 import { centsToBRL } from '../components/admin/utils';
 import GoogleReviewButton from '../components/GoogleReviewButton';
+import DirectionsButton from '../components/DirectionsButton';
+import CartUI, { QtyControl } from '../components/cart/CartUI';
+import useCart from '../hooks/useCart';
 
 export default function MenuProfile({ data }) {
   const { theme } = data;
@@ -25,6 +28,8 @@ export default function MenuProfile({ data }) {
   };
   const textStyle = { color: theme.textColor };
   const accentStyle = { color: theme.buttonColor };
+  const buttonStyle = { backgroundColor: theme.buttonColor, color: theme.buttonTextColor };
+  const cart = useCart(data);
 
   // Agrupa produtos por categoria. Os "sem categoria" vão pro final.
   const grouped = categories.map(cat => ({
@@ -66,13 +71,17 @@ export default function MenuProfile({ data }) {
           )}
           <h1 className="text-2xl font-bold text-center" style={textStyle}>{data.name}</h1>
           <p className="text-sm opacity-70 mt-1" style={textStyle}>Cardápio</p>
+          {data.address && (
+            <p className="text-sm opacity-80 mt-2 flex items-center gap-1 text-center" style={textStyle}>
+              <MapPin className="w-4 h-4 flex-shrink-0" /> {data.address}
+            </p>
+          )}
         </div>
 
-        <GoogleReviewButton
-          data={data}
-          buttonStyle={{ backgroundColor: theme.buttonColor, color: theme.buttonTextColor }}
-          className="mb-8 -mt-4"
-        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8 -mt-4 empty:hidden">
+          <GoogleReviewButton data={data} buttonStyle={buttonStyle} />
+          <DirectionsButton data={data} buttonStyle={buttonStyle} />
+        </div>
 
         {/* Conteúdo */}
         {products.length === 0 ? (
@@ -102,6 +111,20 @@ export default function MenuProfile({ data }) {
                           {centsToBRL(p.price)}
                         </p>
                       </div>
+                      {cart.enabled && (
+                        <div className="flex-shrink-0 self-center">
+                          {cart.qtyOf(p._id) > 0 ? (
+                            <QtyControl qty={cart.qtyOf(p._id)} onChange={(q) => cart.setQty(p._id, q)} buttonStyle={buttonStyle} size="sm" />
+                          ) : (
+                            <button
+                              onClick={() => cart.add(p._id)}
+                              className="p-2 rounded-full shadow hover:scale-105 transition-all"
+                              style={buttonStyle}
+                              aria-label={`Adicionar ${p.name}`}
+                            ><Plus className="w-5 h-5" /></button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -110,10 +133,11 @@ export default function MenuProfile({ data }) {
           </div>
         )}
 
-        <div className="mt-12 text-center opacity-60 text-sm font-medium" style={textStyle}>
+        <div className={`mt-12 text-center opacity-60 text-sm font-medium ${cart.count > 0 ? 'pb-24' : ''}`} style={textStyle}>
           Criado com Adapter Cards
         </div>
       </div>
+      <CartUI cart={cart} data={data} buttonStyle={buttonStyle} />
     </div>
   );
 }

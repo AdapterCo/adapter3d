@@ -4,7 +4,7 @@ import { Star } from 'lucide-react';
 // gerado pela aba "Avaliação Google" do painel.
 export default function GoogleReviewButton({ data, buttonStyle, className = '' }) {
   const url = data?.googleReview?.reviewUrl;
-  if (!url) return null;
+  if (!url || data.showReviewButton === false) return null;
   return (
     <a
       href={url}

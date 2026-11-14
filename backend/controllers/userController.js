@@ -75,7 +75,8 @@ const UPDATABLE_FIELDS = [
   'slug', 'name', 'avatar',
   'instagram', 'facebook', 'tiktok', 'youtube', 'linkedin',
   'whatsapp', 'phone', 'pix',
-  'customLinks', 'pet', 'categories', 'products', 'theme'
+  'customLinks', 'pet', 'categories', 'products', 'theme',
+  'address', 'showReviewButton', 'showDirectionsButton', 'orderSettings'
 ];
 
 function pickUpdatableFields(body) {

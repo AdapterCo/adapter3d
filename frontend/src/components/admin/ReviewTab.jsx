@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import QRCode from 'react-qr-code';
-import { Star, RefreshCw, Printer, Copy, ExternalLink, Trash2, MapPin } from 'lucide-react';
+import { Star, RefreshCw, Printer, Copy, ExternalLink, Trash2, MapPin, Navigation } from 'lucide-react';
 import api from '../../services/api';
 
 function escapeHtml(s) {
@@ -14,7 +14,11 @@ export default function ReviewTab({ data, setData }) {
   const [error, setError] = useState('');
   const qrRef = useRef(null);
 
-  const applyReview = (googleReview) => setData(prev => ({ ...prev, googleReview }));
+  // A rota devolve { googleReview, location, address } já salvos no banco.
+  const applyReview = ({ googleReview, location, address }) =>
+    setData(prev => ({ ...prev, googleReview, location, address: address ?? prev.address }));
+  const hasLocation = typeof data.location?.lat === 'number' && typeof data.location?.lng === 'number';
+  const toggle = (field) => setData(prev => ({ ...prev, [field]: prev[field] === false }));
 
   const handleGenerate = async () => {
     setError('');
@@ -25,7 +29,7 @@ export default function ReviewTab({ data, setData }) {
     setLoading(true);
     try {
       const res = await api.post('/google-review', { mapsUrl: mapsUrl.trim() });
-      applyReview(res.data.googleReview);
+      applyReview(res.data);
     } catch (err) {
       setError(err.response?.data?.message || 'Não foi possível gerar o link. Tente novamente.');
     } finally {
@@ -34,11 +38,11 @@ export default function ReviewTab({ data, setData }) {
   };
 
   const handleRemove = async () => {
-    if (!window.confirm('Remover o botão "Avaliar no Google" do seu perfil?')) return;
+    if (!window.confirm('Remover o link do Google Maps? Os botões "Avaliar no Google" e "Como chegar" deixam de aparecer.')) return;
     setLoading(true);
     try {
       const res = await api.delete('/google-review');
-      applyReview(res.data.googleReview);
+      applyReview(res.data);
       setMapsUrl('');
     } catch (err) {
       setError(err.response?.data?.message || 'Erro ao remover.');
@@ -95,11 +99,11 @@ export default function ReviewTab({ data, setData }) {
   return (
     <div className="space-y-6 max-w-xl">
       <h3 className="font-semibold text-lg border-b pb-2 flex items-center gap-2">
-        <Star className="w-5 h-5 text-yellow-500" /> Avaliação no Google
+        <MapPin className="w-5 h-5 text-red-500" /> Google Maps: avaliação e localização
       </h3>
       <p className="text-sm text-gray-500 -mt-2">
-        Cole o link do seu negócio no Google Maps. Geramos o link que abre direto a tela de avaliação,
-        mostramos um botão "Avaliar no Google" no seu perfil e um QR Code pronto para imprimir.
+        Cole o link do seu negócio no Google Maps. Com ele geramos o botão <strong>"Avaliar no Google"</strong> (com QR Code
+        para imprimir) e o botão <strong>"Como chegar"</strong>, que abre Google Maps, Waze, Uber ou 99.
       </p>
 
       <div>
@@ -132,7 +136,31 @@ export default function ReviewTab({ data, setData }) {
           <div>
             <p className="text-xs uppercase tracking-wide text-gray-500">Empresa encontrada</p>
             <p className="font-semibold text-gray-900">{review.businessName || '—'}</p>
-            <p className="text-xs text-green-700 mt-1">Salvo. O botão já aparece no seu perfil público.</p>
+            <p className="text-xs text-green-700 mt-1">Link salvo.</p>
+          </div>
+
+          <div className="space-y-3 border-t pt-4">
+            <label className="flex items-center gap-3 text-sm">
+              <input type="checkbox" checked={data.showReviewButton !== false} onChange={() => toggle('showReviewButton')} className="w-4 h-4" />
+              <span className="flex items-center gap-1"><Star className="w-4 h-4 text-yellow-500" /> Mostrar botão "Avaliar no Google"</span>
+            </label>
+            <label className={`flex items-center gap-3 text-sm ${hasLocation ? '' : 'opacity-50'}`}>
+              <input type="checkbox" disabled={!hasLocation} checked={hasLocation && data.showDirectionsButton !== false} onChange={() => toggle('showDirectionsButton')} className="w-4 h-4" />
+              <span className="flex items-center gap-1"><Navigation className="w-4 h-4 text-blue-600" /> Mostrar botão "Como chegar"</span>
+            </label>
+            {!hasLocation && (
+              <p className="text-xs text-amber-700">Não conseguimos achar a localização nesse link. Use o link de compartilhamento do Maps (maps.app.goo.gl) e clique em Atualizar.</p>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Endereço exibido no perfil</label>
+              <input
+                type="text" value={data.address || ''} maxLength={200}
+                onChange={(e) => setData(prev => ({ ...prev, address: e.target.value }))}
+                placeholder="Rua, número - Bairro, Cidade - UF"
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+              />
+              <p className="text-xs text-gray-500 mt-1">Preenchido automaticamente pela localização; ajuste se precisar. Clique em <strong>Salvar</strong> no topo para gravar as opções acima.</p>
+            </div>
           </div>
 
           <div className="flex justify-center">
@@ -152,7 +180,7 @@ export default function ReviewTab({ data, setData }) {
               <ExternalLink className="w-4 h-4 mr-2" /> Testar link
             </a>
             <button onClick={handleRemove} disabled={loading} className="flex items-center justify-center p-3 border border-red-200 bg-white rounded-lg hover:bg-red-50 font-medium text-red-600">
-              <Trash2 className="w-4 h-4 mr-2" /> Remover botão
+              <Trash2 className="w-4 h-4 mr-2" /> Remover link
             </button>
           </div>
         </div>

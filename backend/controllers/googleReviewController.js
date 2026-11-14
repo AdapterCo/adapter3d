@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const { resolveCoordinates, reverseGeocode } = require('../services/mapsLocation');
 
 // Serviço externo que converte o link do Google Maps / Perfil da Empresa em
 // link direto de avaliação. Resposta de sucesso:
@@ -29,6 +30,9 @@ exports.resolve = async (req, res) => {
   if (!mapsUrl || mapsUrl.length > 1000 || !isHttpUrl(mapsUrl)) {
     return res.status(400).json({ message: 'Cole o link de compartilhamento do Google Maps (ex: https://maps.app.goo.gl/...).' });
   }
+
+  // Coordenadas (para "Como chegar") em paralelo com o link de avaliação.
+  const coordsPromise = resolveCoordinates(mapsUrl).catch(() => null);
 
   let payload;
   try {
@@ -62,14 +66,26 @@ exports.resolve = async (req, res) => {
     businessName: String(payload.business_name || '').slice(0, 200)
   };
 
+  const coords = await coordsPromise;
+  const set = { googleReview, location: coords || { lat: null, lng: null } };
+
   try {
+    // Endereço sugerido só preenche se o lojista ainda não tiver digitado um.
+    if (coords) {
+      const current = await User.findOne({ id: req.user.id }).select('address').lean();
+      if (current && !current.address) {
+        const suggested = await reverseGeocode(coords);
+        if (suggested) set.address = suggested;
+      }
+    }
+
     const user = await User.findOneAndUpdate(
       { id: req.user.id },
-      { $set: { googleReview } },
+      { $set: set },
       { returnDocument: 'after' }
-    ).select('googleReview');
+    ).select('googleReview location address');
     if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
-    res.json({ googleReview: user.googleReview });
+    res.json({ googleReview: user.googleReview, location: user.location, address: user.address });
   } catch (error) {
     console.error('google-review save error:', error);
     res.status(500).json({ message: 'Erro ao salvar o link de avaliação.' });
@@ -81,11 +97,11 @@ exports.remove = async (req, res) => {
   try {
     const user = await User.findOneAndUpdate(
       { id: req.user.id },
-      { $set: { googleReview: EMPTY_REVIEW } },
+      { $set: { googleReview: EMPTY_REVIEW, location: { lat: null, lng: null } } },
       { returnDocument: 'after' }
-    ).select('googleReview');
+    ).select('googleReview location address');
     if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
-    res.json({ googleReview: user.googleReview });
+    res.json({ googleReview: user.googleReview, location: user.location, address: user.address });
   } catch (error) {
     console.error('google-review remove error:', error);
     res.status(500).json({ message: 'Erro ao remover o link de avaliação.' });

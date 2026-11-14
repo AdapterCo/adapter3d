@@ -16,12 +16,13 @@ import CategoriesTab from '../components/admin/CategoriesTab';
 import ProductsTab from '../components/admin/ProductsTab';
 import ContactTab from '../components/admin/ContactTab';
 import ReviewTab from '../components/admin/ReviewTab';
+import OrdersTab from '../components/admin/OrdersTab';
 
 const TABS_BY_TYPE = {
   business: ['basic', 'links', 'review', 'theme'],
   pet: ['basic', 'pet', 'owner', 'health', 'lost', 'theme'],
-  menu: ['basic', 'categories', 'products', 'review', 'theme'],
-  storefront: ['basic', 'categories', 'products', 'contact', 'review', 'theme']
+  menu: ['basic', 'categories', 'products', 'orders', 'contact', 'review', 'theme'],
+  storefront: ['basic', 'categories', 'products', 'orders', 'contact', 'review', 'theme']
 };
 
 const TAB_LABEL = {
@@ -35,7 +36,8 @@ const TAB_LABEL = {
   categories: 'Categorias',
   products: 'Produtos',
   contact: 'Contato',
-  review: '⭐ Avaliação Google'
+  review: '📍 Google Maps',
+  orders: '🛒 Pedidos'
 };
 
 const TAB_COMPONENT = {
@@ -49,7 +51,8 @@ const TAB_COMPONENT = {
   categories: CategoriesTab,
   products: ProductsTab,
   contact: ContactTab,
-  review: ReviewTab
+  review: ReviewTab,
+  orders: OrdersTab
 };
 
 export default function Admin() {

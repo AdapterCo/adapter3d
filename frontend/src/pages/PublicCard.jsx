@@ -7,6 +7,7 @@ import PetProfile from './PetProfile';
 import MenuProfile from './MenuProfile';
 import StorefrontProfile from './StorefrontProfile';
 import GoogleReviewButton from '../components/GoogleReviewButton';
+import DirectionsButton from '../components/DirectionsButton';
 
 // Brand icons (lucide-react 1.16 doesn't ship these — inline SVGs keep the build working)
 const Instagram = ({ className }) => (
@@ -169,6 +170,7 @@ export default function PublicCard({ previewData }) {
           )}
 
           <GoogleReviewButton data={data} buttonStyle={buttonStyle} />
+          <DirectionsButton data={data} buttonStyle={buttonStyle} />
 
           {data.pix && (
             <button onClick={copyPix}

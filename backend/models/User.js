@@ -92,6 +92,31 @@ const userSchema = new mongoose.Schema({
     businessName: { type: String, default: '' }
   },
 
+  // Coordenadas do estabelecimento, extraídas do mesmo link do Maps (rota
+  // /api/google-review). Usadas pelo botão "Como chegar" (Maps/Waze/Uber/99).
+  location: {
+    lat: { type: Number, default: null, min: -90, max: 90 },
+    lng: { type: Number, default: null, min: -180, max: 180 }
+  },
+  // Endereço exibido no perfil. Pré-preenchido a partir das coordenadas,
+  // editável pelo lojista.
+  address: { type: String, default: '', trim: true, maxlength: 200 },
+  showReviewButton: { type: Boolean, default: true },
+  showDirectionsButton: { type: Boolean, default: true },
+
+  // Carrinho + pedido pelo WhatsApp (perfis menu e storefront). Valores em centavos.
+  orderSettings: {
+    enabled: { type: Boolean, default: true },
+    pickup: { type: Boolean, default: true },
+    delivery: { type: Boolean, default: true },
+    deliveryFee: { type: Number, default: 0, min: 0, max: 100000 },
+    minOrder: { type: Number, default: 0, min: 0, max: 10000000 },
+    paymentMethods: {
+      type: [{ type: String, enum: ['pix', 'card', 'cash'] }],
+      default: () => ['pix', 'card', 'cash']
+    }
+  },
+
   // Pet-specific block (only meaningful when profileType === 'pet')
   pet: { type: petSchema, default: () => ({}) },
 
