@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const { isProfileOnline } = require('../utils/plans');
 
 // Prévia de link (Open Graph) para robôs de WhatsApp, Instagram, Facebook,
 // Telegram etc. Eles não executam JavaScript, então o SPA mostraria só
@@ -81,7 +82,10 @@ function renderNotFound(res) {
   });
 }
 
-const FIELDS = 'name slug avatar address profileType pet.name pet.lostMode';
+const FIELDS = 'name slug avatar address profileType pet.name pet.lostMode signupSource subscription';
+
+// Perfil fora do ar (assinatura não paga): prévia genérica, sem dados da loja.
+const renderUserOrUnavailable = (res, user) => (isProfileOnline(user) ? renderUser(res, user) : renderNotFound(res));
 
 // GET /api/og/:slug  (aceita também slugs antigos do perfil)
 exports.bySlug = async (req, res) => {
@@ -89,7 +93,7 @@ exports.bySlug = async (req, res) => {
     const slug = String(req.params.slug || '').toLowerCase().slice(0, 64);
     const user = await User.findOne({ slug }).select(FIELDS).lean()
       || await User.findOne({ previousSlugs: slug }).select(FIELDS).lean();
-    return user ? renderUser(res, user) : renderNotFound(res);
+    return user ? renderUserOrUnavailable(res, user) : renderNotFound(res);
   } catch (error) {
     console.error('og bySlug error:', error.message);
     renderNotFound(res);
@@ -101,7 +105,7 @@ exports.byTag = async (req, res) => {
   try {
     const id = String(req.params.id || '').slice(0, 64);
     const user = await User.findOne({ id }).select(FIELDS).lean();
-    return user ? renderUser(res, user) : renderNotFound(res);
+    return user ? renderUserOrUnavailable(res, user) : renderNotFound(res);
   } catch (error) {
     console.error('og byTag error:', error.message);
     renderNotFound(res);

@@ -55,6 +55,7 @@ export default function PublicCard({ previewData }) {
   const [data, setData] = useState(previewData ? { ...previewData, _preview: true } : null);
   const [loading, setLoading] = useState(!previewData);
   const [copiedPix, setCopiedPix] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
   const fromTag = useLocation().state?.fromTag === true;
   const visitSent = useRef(false);
 
@@ -82,7 +83,9 @@ export default function PublicCard({ previewData }) {
           }
           setData(response.data);
         } catch (error) {
-          console.error("Error fetching data", error);
+          // Cardápio/vitrine com assinatura não paga: fora do ar.
+          if (error.response?.status === 403 && error.response.data?.unavailable) setUnavailable(true);
+          else console.error("Error fetching data", error);
         } finally {
           setLoading(false);
         }
@@ -93,6 +96,18 @@ export default function PublicCard({ previewData }) {
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
+  }
+
+  if (unavailable) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+        <div className="text-center max-w-sm">
+          <img src="/logo.png" alt="Adapter Cards" className="h-14 w-auto mx-auto mb-6 opacity-80" />
+          <h1 className="text-xl font-semibold text-gray-800">Perfil temporariamente indisponível</h1>
+          <p className="text-gray-500 mt-2 text-sm">Este perfil está fora do ar no momento. Tente novamente mais tarde.</p>
+        </div>
+      </div>
+    );
   }
 
   if (!data) {

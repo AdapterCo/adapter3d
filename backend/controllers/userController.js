@@ -1,5 +1,7 @@
 const User = require('../models/User');
+const Tag = require('../models/Tag');
 const storage = require('../services/storage');
+const { isProfileOnline } = require('../utils/plans');
 const { normalizeSlug, isValidSlug } = require('../utils/validation');
 const { optimizeImage } = require('../services/imageProcessor');
 
@@ -16,7 +18,18 @@ exports.getUserBySlug = async (req, res) => {
       return res.status(404).json({ message: 'Perfil não encontrado' });
     }
 
-    res.json(user);
+    // Cardápio/vitrine sem assinatura paga: fora do ar (link, QR e tag).
+    if (!isProfileOnline(user)) {
+      return res.status(403).json({ unavailable: true, message: 'Perfil temporariamente indisponível.' });
+    }
+
+    // Dados internos (assinatura, endereço de entrega) nunca vão para o público.
+    const data = user.toObject();
+    delete data.subscription;
+    delete data.shipping;
+    delete data.signupSource;
+    delete data.termsAcceptedAt;
+    res.json(data);
   } catch (error) {
     console.error('Error in getUserBySlug:', error);
     res.status(500).json({ message: 'Server error' });
@@ -27,13 +40,20 @@ exports.getUserBySlug = async (req, res) => {
 exports.getUserByTagId = async (req, res) => {
   try {
     const { id } = req.params;
-    const user = await User.findOne({ id }).select('slug');
+    // 1) ID da própria conta (contas antigas: = código da tag; contas por
+    //    assinatura: "u-...", usado para gravar a tag pelo painel).
+    let user = await User.findOne({ id }).select('slug');
+    // 2) Tag física vinculada depois a uma conta (envio pelo /gestao).
+    if (!user) {
+      const tag = await Tag.findOne({ id, activatedBy: { $ne: null } }).select('activatedBy').lean();
+      if (tag) user = await User.findById(tag.activatedBy).select('slug');
+    }
 
     if (!user) {
       return res.status(404).json({ message: 'Tag não ativada' });
     }
 
-    res.json(user);
+    res.json({ slug: user.slug });
   } catch (error) {
     console.error('Error in getUserByTagId:', error);
     res.status(500).json({ message: 'Server error' });

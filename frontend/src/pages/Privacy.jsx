@@ -22,6 +22,7 @@ export default function Privacy() {
         <li><strong>Perfil</strong>: as informações que você decide publicar, como nome, fotos, redes sociais, WhatsApp, telefone, chave Pix, endereço, produtos e preços. Esses dados ficam <strong>públicos</strong> no seu perfil, porque essa é a finalidade do serviço.</li>
         <li><strong>Perfil de pet</strong>: dados do animal e do tutor (como o telefone), exibidos publicamente para que quem encontrar o pet possa entrar em contato. Publique apenas o que desejar tornar público.</li>
         <li><strong>Localização do estabelecimento</strong>: quando você informa o link do Google Maps, extraímos as coordenadas para os botões "Como chegar" e "Avaliar no Google".</li>
+        <li><strong>Assinatura (cardápio e vitrine)</strong>: nome, e-mail, WhatsApp e endereço de entrega da tag. Os dados de pagamento (como CPF/CNPJ e cartão) são informados <strong>diretamente no Mercado Pago</strong> e <strong>não ficam armazenados em nossos servidores</strong>. Guardamos apenas a situação da assinatura (paga até quando) e os identificadores da cobrança.</li>
       </UL>
 
       <H2>3. Dados dos visitantes</H2>
@@ -42,6 +43,8 @@ export default function Privacy() {
       <H2>5. Com quem compartilhamos</H2>
       <UL>
         <li><strong>Infraestrutura</strong>: provedores de hospedagem, armazenamento de imagens e envio de e-mail, que processam os dados apenas para operar o serviço.</li>
+        <li><strong>Pagamentos</strong>: as assinaturas são cobradas pelo Mercado Pago, que recebe o e-mail do assinante e o valor da assinatura. Os dados de pagamento são digitados diretamente na página do Mercado Pago e nunca passam por nós; o tratamento deles segue a política de privacidade do Mercado Pago.</li>
+        <li><strong>Busca de CEP</strong>: o CEP digitado no cadastro é consultado no serviço público ViaCEP para preencher o endereço.</li>
         <li><strong>Serviços de localização</strong>: o link do Google Maps informado pelo assinante é consultado em um serviço externo para gerar o link de avaliação, e as coordenadas são consultadas no OpenStreetMap para sugerir o endereço.</li>
         <li><strong>Aplicativos que você escolhe abrir</strong>: ao tocar em WhatsApp, Google Maps, Waze, Uber, 99, redes sociais ou links do perfil, você passa a usar o serviço daquela empresa, sujeito à política dela.</li>
         <li><strong>Autoridades</strong>: quando exigido por lei ou ordem judicial.</li>

@@ -4,6 +4,9 @@ const User = require('../models/User');
 const Tag = require('../models/Tag');
 const crypto = require('crypto');
 const mailer = require('../services/mailer');
+const { isPaidType, subscriptionState } = require('../utils/plans');
+
+const PAID_SIGNUP_MESSAGE = 'Cardápio e vitrine agora funcionam por assinatura: crie sua conta em /assinar. A tag é enviada depois para o seu endereço.';
 const {
   MIN_PASSWORD_LENGTH,
   EMAIL_COLLATION,
@@ -57,6 +60,9 @@ exports.validateTag = async (req, res) => {
     if (!tag) {
       return res.status(400).json({ message: 'Tag inválida. Verifique o código impresso no seu cartão.' });
     }
+    if (isPaidType(tag.profileType)) {
+      return res.status(400).json({ message: PAID_SIGNUP_MESSAGE });
+    }
     if (tag.isActivated) {
       return res.status(400).json({ message: 'Esta Tag já está ativada e vinculada a um perfil.' });
     }
@@ -87,6 +93,13 @@ exports.register = async (req, res) => {
     }
     if (typeof password !== 'string' || password.length < MIN_PASSWORD_LENGTH) {
       return res.status(400).json({ message: `A senha precisa ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.` });
+    }
+
+    // Cardápio/vitrine não se ativam pela tag: a conta nasce na assinatura (/assinar)
+    // e a tag é vinculada depois pelo administrador.
+    const tagInfo = await Tag.findOne({ id }).select('profileType').lean();
+    if (tagInfo && isPaidType(tagInfo.profileType)) {
+      return res.status(400).json({ message: PAID_SIGNUP_MESSAGE });
     }
 
     // Reivindica a tag de forma atômica: só dá certo se ela existir E estiver livre.
@@ -174,7 +187,9 @@ exports.getMe = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'Usuário não encontrado' });
     }
-    res.json(user);
+    // subscriptionState: usado pelo painel para avisos (aguardando pagamento,
+    // perfil fora do ar). Somente leitura: não está em UPDATABLE_FIELDS.
+    res.json({ ...user.toObject(), subscriptionState: subscriptionState(user) });
   } catch (error) {
     console.error('Get me error:', error);
     res.status(500).json({ message: 'Erro no servidor' });

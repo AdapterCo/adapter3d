@@ -8,6 +8,8 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
+import Subscribe from './pages/Subscribe';
+import Gestao from './pages/Gestao';
 
 function App() {
   return (
@@ -21,6 +23,8 @@ function App() {
         <Route path="/redefinir-senha" element={<ResetPassword />} />
         <Route path="/termos" element={<Terms />} />
         <Route path="/privacidade" element={<Privacy />} />
+        <Route path="/assinar" element={<Subscribe />} />
+        <Route path="/gestao" element={<Gestao />} />
         <Route path="/:slug" element={<PublicCard />} />
       </Routes>
     </Router>

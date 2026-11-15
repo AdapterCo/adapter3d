@@ -1,0 +1,259 @@
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const User = require('../models/User');
+const BillingEvent = require('../models/BillingEvent');
+const mp = require('../services/mercadopago');
+const { isPaidType, subscriptionState, endOfDayPlusMonths, planPrice } = require('../utils/plans');
+const {
+  MIN_PASSWORD_LENGTH, EMAIL_COLLATION, normalizeEmail, isValidEmail,
+  normalizeSlug, isValidSlug, normalizeBrPhone, validateShipping
+} = require('../utils/validation');
+
+const PLAN_LABEL = { menu: 'Cardápio digital', storefront: 'Vitrine digital' };
+
+const signToken = (user) => jwt.sign({ user: { id: user.id, slug: user.slug } }, process.env.JWT_SECRET, { expiresIn: '7d' });
+const publicUser = (u) => ({ id: u.id, slug: u.slug, email: u.email, name: u.name, profileType: u.profileType });
+const appUrl = () => (process.env.APP_URL || '').replace(/\/$/, '');
+
+// GET /api/billing/prices — preços exibidos na página de assinatura.
+exports.prices = (req, res) => {
+  res.json({ menu: planPrice('menu'), storefront: planPrice('storefront'), available: mp.isConfigured() });
+};
+
+// Cria a assinatura (preapproval pendente) no Mercado Pago e devolve o link de pagamento.
+async function startSubscription(user) {
+  const pre = await mp.createSubscription({
+    reason: `${PLAN_LABEL[user.profileType] || 'Assinatura'} Adapter Cards - ${user.slug}`,
+    payerEmail: user.email,
+    amount: planPrice(user.profileType),
+    backUrl: `${appUrl()}/admin`,
+    externalReference: user.id
+  });
+  return { subscriptionId: pre.id, invoiceUrl: pre.init_point || '', customerId: pre.payer_id ? String(pre.payer_id) : '' };
+}
+
+// POST /api/billing/signup — cadastro de cardápio/vitrine com assinatura.
+exports.signup = async (req, res) => {
+  const b = req.body || {};
+  const profileType = b.profileType;
+  if (!isPaidType(profileType)) return res.status(400).json({ message: 'Escolha cardápio ou vitrine.' });
+  if (b.acceptTerms !== true) return res.status(400).json({ message: 'É preciso aceitar os Termos de Uso e a Política de Privacidade.' });
+  if (!mp.isConfigured()) return res.status(503).json({ message: 'Assinaturas indisponíveis no momento. Tente mais tarde.' });
+
+  const name = String(b.name || '').trim().slice(0, 80);
+  const email = normalizeEmail(b.email);
+  const slug = normalizeSlug(b.slug);
+  const phone = normalizeBrPhone(b.phone);
+  const password = typeof b.password === 'string' ? b.password : '';
+  const shipping = validateShipping(b.shipping);
+
+  if (!name) return res.status(400).json({ message: 'Informe o nome do estabelecimento.' });
+  if (!isValidEmail(email)) return res.status(400).json({ message: 'E-mail inválido.' });
+  if (password.length < MIN_PASSWORD_LENGTH) return res.status(400).json({ message: `A senha precisa ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.` });
+  if (!isValidSlug(slug)) return res.status(400).json({ message: 'Link inválido. Use de 3 a 32 letras minúsculas, números ou hífen.' });
+  if (!phone) return res.status(400).json({ message: 'WhatsApp inválido. Informe com DDD.' });
+  if (shipping.error) return res.status(400).json({ message: shipping.error });
+
+  if (await User.findOne({ email }).collation(EMAIL_COLLATION).select('_id')) {
+    return res.status(400).json({ message: 'Este e-mail já está em uso.' });
+  }
+  if (await User.findOne({ $or: [{ slug }, { previousSlugs: slug }] }).select('_id')) {
+    return res.status(400).json({ message: 'Este link já está em uso. Escolha outro.' });
+  }
+
+  let user;
+  try {
+    user = await User.create({
+      // Conta sem tag: ID próprio (a tag física é vinculada depois, no /gestao).
+      id: `u-${crypto.randomBytes(5).toString('hex')}`,
+      email,
+      password: await bcrypt.hash(password, await bcrypt.genSalt(10)),
+      slug,
+      name,
+      profileType,
+      whatsapp: phone,
+      signupSource: 'subscription',
+      termsAcceptedAt: new Date(),
+      subscription: { status: 'pending' },
+      shipping: { ...shipping.value, status: 'pending' }
+    });
+  } catch (err) {
+    if (err?.code === 11000) return res.status(400).json({ message: 'E-mail ou link já em uso.' });
+    console.error('billing signup: erro ao criar usuário:', err);
+    return res.status(500).json({ message: 'Erro no servidor.' });
+  }
+
+  try {
+    const started = await startSubscription(user);
+    user.subscription.subscriptionId = started.subscriptionId;
+    user.subscription.invoiceUrl = started.invoiceUrl;
+    user.subscription.customerId = started.customerId;
+    await user.save();
+    res.status(201).json({ token: signToken(user), user: publicUser(user), invoiceUrl: started.invoiceUrl });
+  } catch (err) {
+    // Sem assinatura no Mercado Pago a conta não serve: desfaz o cadastro.
+    await User.deleteOne({ _id: user._id }).catch(() => {});
+    console.error('billing signup: erro no Mercado Pago:', mp.errorMessage(err));
+    res.status(502).json({ message: 'Não foi possível criar a assinatura agora. Tente novamente em instantes.' });
+  }
+};
+
+// GET /api/billing/me — situação da assinatura do lojista logado.
+exports.me = async (req, res) => {
+  try {
+    const user = await User.findOne({ id: req.user.id }).select('profileType signupSource subscription shipping slug');
+    if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
+    const state = subscriptionState(user);
+    const subId = user.subscription?.subscriptionId;
+    const hasSubscription = Boolean(subId) && user.subscription.status !== 'canceled';
+
+    // Link de pagamento só faz sentido enquanto o perfil não estiver pago.
+    let invoiceUrl = '';
+    if (hasSubscription && !state.active) {
+      invoiceUrl = user.subscription.invoiceUrl || '';
+      try {
+        const pre = await mp.getSubscription(subId);
+        if (pre?.init_point) invoiceUrl = pre.init_point;
+      } catch (e) {
+        console.warn('billing me: falha ao consultar assinatura no Mercado Pago:', mp.errorMessage(e));
+      }
+    }
+
+    res.json({
+      ...state,
+      price: isPaidType(user.profileType) ? planPrice(user.profileType) : null,
+      hasSubscription,
+      invoiceUrl,
+      shipping: {
+        status: user.shipping?.status || 'none',
+        city: user.shipping?.city || '',
+        state: user.shipping?.state || '',
+        sentAt: user.shipping?.sentAt || null
+      }
+    });
+  } catch (error) {
+    console.error('billing me error:', error);
+    res.status(500).json({ message: 'Erro no servidor' });
+  }
+};
+
+// POST /api/billing/subscribe — (re)assinar: cancelados, vencidos ou contas
+// antigas que vão passar a pagar.
+exports.subscribe = async (req, res) => {
+  try {
+    const user = await User.findOne({ id: req.user.id });
+    if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
+    if (!isPaidType(user.profileType)) return res.status(400).json({ message: 'Este tipo de perfil não tem mensalidade.' });
+    if (!mp.isConfigured()) return res.status(503).json({ message: 'Assinaturas indisponíveis no momento.' });
+    if (user.subscription?.subscriptionId && user.subscription.status !== 'canceled') {
+      return res.status(400).json({ message: 'Você já tem uma assinatura. Use o botão de pagamento.' });
+    }
+
+    const wasActive = subscriptionState(user).active;
+    const started = await startSubscription(user);
+    user.subscription.subscriptionId = started.subscriptionId;
+    user.subscription.invoiceUrl = started.invoiceUrl;
+    if (started.customerId) user.subscription.customerId = started.customerId;
+    user.subscription.status = wasActive && user.subscription.activeUntil ? 'active' : 'pending';
+    await user.save();
+    res.json({ invoiceUrl: started.invoiceUrl });
+  } catch (err) {
+    console.error('billing subscribe error:', mp.errorMessage(err));
+    res.status(502).json({ message: 'Não foi possível criar a assinatura agora. Tente novamente.' });
+  }
+};
+
+// POST /api/billing/cancel — cancela a renovação. Fica no ar até o fim do período pago.
+exports.cancel = async (req, res) => {
+  try {
+    const user = await User.findOne({ id: req.user.id }).select('subscription profileType');
+    if (!user?.subscription?.subscriptionId || user.subscription.status === 'canceled') {
+      return res.status(400).json({ message: 'Não há assinatura ativa para cancelar.' });
+    }
+    await mp.cancelSubscription(user.subscription.subscriptionId);
+    await User.updateOne({ _id: user._id }, { $set: { 'subscription.status': 'canceled', 'subscription.invoiceUrl': '' } });
+    const until = user.subscription.activeUntil;
+    res.json({ message: until && until > new Date()
+      ? `Assinatura cancelada. Seu perfil fica no ar até ${until.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}.`
+      : 'Assinatura cancelada.' });
+  } catch (err) {
+    console.error('billing cancel error:', mp.errorMessage(err));
+    res.status(502).json({ message: 'Não foi possível cancelar agora. Tente novamente.' });
+  }
+};
+
+// POST /api/billing/webhook — notificações do Mercado Pago.
+// O Mercado Pago envia ?data.id=...&type=... e o corpo { type, action, data: { id } }.
+// A notificação só diz "algo mudou": o estado real é sempre consultado na API.
+exports.webhook = async (req, res) => {
+  const dataId = String(req.query['data.id'] || req.body?.data?.id || '');
+  const type = String(req.query.type || req.body?.type || req.query.topic || '');
+
+  try {
+    mp.validateWebhookSignature({ xSignature: req.get('x-signature'), xRequestId: req.get('x-request-id'), dataId });
+  } catch (err) {
+    console.warn('webhook Mercado Pago: assinatura inválida:', err.message);
+    return res.status(401).json({ message: 'unauthorized' });
+  }
+  if (!dataId || !type) return res.json({ ok: true });
+
+  // O Mercado Pago pode reenviar a mesma notificação.
+  const eventId = `${type}:${dataId}:${req.body?.action || ''}:${req.get('x-request-id') || ''}`;
+
+  try {
+    if (await BillingEvent.exists({ _id: eventId })) return res.json({ ok: true, duplicate: true });
+
+    let userId = null;
+    if (type === 'subscription_authorized_payment') {
+      // Cobrança mensal da assinatura.
+      const inv = await mp.getAuthorizedPayment(dataId);
+      if (inv?.payment?.status === 'approved' && inv.preapproval_id) {
+        const user = await User.findOne({ 'subscription.subscriptionId': inv.preapproval_id }).select('subscription id');
+        if (user) {
+          userId = user.id;
+          // Cada cobrança aprovada cobre 1 mês a partir da data da cobrança.
+          // Calcular a partir dessa data (e não de "agora") torna o resultado
+          // igual mesmo se a notificação chegar repetida.
+          const chargeDate = String(inv.debit_date || inv.date_created || new Date().toISOString()).slice(0, 10);
+          const coveredUntil = endOfDayPlusMonths(chargeDate, 1);
+          const current = user.subscription.activeUntil;
+          const activeUntil = current && current > coveredUntil ? current : coveredUntil;
+          await User.updateOne({ _id: user._id }, {
+            $set: {
+              'subscription.activeUntil': activeUntil,
+              'subscription.status': user.subscription.status === 'canceled' ? 'canceled' : 'active',
+              'subscription.invoiceUrl': ''
+            }
+          });
+        } else {
+          console.warn(`webhook: assinatura ${inv.preapproval_id} sem usuário correspondente`);
+        }
+      }
+    } else if (type === 'subscription_preapproval') {
+      // Mudança na assinatura (autorizada, pausada, cancelada).
+      const pre = await mp.getSubscription(dataId);
+      const user = pre?.id ? await User.findOne({ 'subscription.subscriptionId': pre.id }).select('id subscription') : null;
+      if (user) {
+        userId = user.id;
+        const set = {};
+        if (pre.payer_id) set['subscription.customerId'] = String(pre.payer_id);
+        if (pre.status === 'cancelled') {
+          set['subscription.status'] = 'canceled';
+          set['subscription.invoiceUrl'] = '';
+        } else if (pre.status === 'pending' && pre.init_point) {
+          set['subscription.invoiceUrl'] = pre.init_point;
+        }
+        if (Object.keys(set).length) await User.updateOne({ _id: user._id }, { $set: set });
+      }
+    }
+
+    // Registra só depois de processar: se algo falhar acima, o Mercado Pago reenvia.
+    await BillingEvent.create({ _id: eventId, event: type, paymentId: dataId, userId })
+      .catch(err => { if (err?.code !== 11000) throw err; });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('billing webhook error:', mp.errorMessage(error));
+    res.status(500).json({ message: 'error' });
+  }
+};

@@ -8,6 +8,7 @@ const adminController = require('../controllers/adminController');
 const googleReviewController = require('../controllers/googleReviewController');
 const statsController = require('../controllers/statsController');
 const ogController = require('../controllers/ogController');
+const billingController = require('../controllers/billingController');
 const auth = require('../middleware/authMiddleware');
 const adminAuth = require('../middleware/adminAuth');
 const rateLimit = require('../middleware/rateLimit');
@@ -86,9 +87,25 @@ router.post('/track', rateLimit({
 }), express.text({ type: 'text/plain', limit: '16kb' }), statsController.track);
 router.get('/stats', auth, statsController.getStats);
 
+// Assinaturas (cardápio/vitrine) via Mercado Pago.
+router.get('/billing/prices', billingController.prices);
+router.post('/billing/signup', rateLimit({
+  windowMs: 60 * 60 * 1000, max: 10,
+  message: 'Muitas tentativas de cadastro. Tente novamente mais tarde.'
+}), billingController.signup);
+router.get('/billing/me', auth, billingController.me);
+router.post('/billing/subscribe', auth, billingController.subscribe);
+router.post('/billing/cancel', auth, billingController.cancel);
+router.post('/billing/webhook', billingController.webhook);
+
 // Admin Routes (protegidas por X-Admin-Key header — sem JWT)
 router.post('/admin/tags', adminAuth, adminController.createTags);
 router.get('/admin/tags', adminAuth, adminController.listTags);
 router.delete('/admin/tags/:id', adminAuth, adminController.deleteTag);
+router.get('/admin/summary', adminAuth, adminController.summary);
+router.get('/admin/users', adminAuth, adminController.listUsers);
+router.post('/admin/users/:id/active-until', adminAuth, adminController.setActiveUntil);
+router.get('/admin/shipments', adminAuth, adminController.listShipments);
+router.post('/admin/shipments/:id/link-tag', adminAuth, adminController.linkTag);
 
 module.exports = router;

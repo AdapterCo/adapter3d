@@ -19,12 +19,13 @@ import ContactTab from '../components/admin/ContactTab';
 import ReviewTab from '../components/admin/ReviewTab';
 import OrdersTab from '../components/admin/OrdersTab';
 import StatsTab from '../components/admin/StatsTab';
+import PlanTab from '../components/admin/PlanTab';
 
 const TABS_BY_TYPE = {
   business: ['basic', 'stats', 'links', 'review', 'theme'],
   pet: ['basic', 'stats', 'pet', 'owner', 'health', 'lost', 'theme'],
-  menu: ['basic', 'stats', 'categories', 'products', 'orders', 'contact', 'review', 'theme'],
-  storefront: ['basic', 'stats', 'categories', 'products', 'orders', 'contact', 'review', 'theme']
+  menu: ['basic', 'stats', 'plan', 'categories', 'products', 'orders', 'contact', 'review', 'theme'],
+  storefront: ['basic', 'stats', 'plan', 'categories', 'products', 'orders', 'contact', 'review', 'theme']
 };
 
 const TAB_LABEL = {
@@ -40,7 +41,8 @@ const TAB_LABEL = {
   contact: 'Contato',
   review: '📍 Google Maps',
   orders: '🛒 Pedidos',
-  stats: '📊 Estatísticas'
+  stats: '📊 Estatísticas',
+  plan: '💳 Plano'
 };
 
 const TAB_COMPONENT = {
@@ -56,7 +58,8 @@ const TAB_COMPONENT = {
   contact: ContactTab,
   review: ReviewTab,
   orders: OrdersTab,
-  stats: StatsTab
+  stats: StatsTab,
+  plan: PlanTab
 };
 
 export default function Admin() {
@@ -185,6 +188,20 @@ export default function Admin() {
             </button>
           </div>
         </header>
+
+        {/* Aviso de assinatura (cardápio/vitrine): perfil fora do ar */}
+        {data.subscriptionState?.required && !data.subscriptionState.active && (
+          <div className={`mx-6 mt-4 rounded-lg border p-3 text-sm flex flex-wrap items-center justify-between gap-2 ${data.subscriptionState.status === 'pending' ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-red-50 border-red-200 text-red-800'}`}>
+            <span>
+              {data.subscriptionState.status === 'pending'
+                ? 'Seu perfil entra no ar assim que o primeiro pagamento for confirmado. Você já pode montar tudo por aqui.'
+                : 'Seu perfil está fora do ar: a assinatura não está paga.'}
+            </span>
+            <button onClick={() => setActiveTab('plan')} className="px-3 py-1.5 rounded-md bg-white border font-medium hover:bg-gray-50">
+              Ver plano e pagar
+            </button>
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex border-b px-6 pt-4 space-x-6 overflow-x-auto">

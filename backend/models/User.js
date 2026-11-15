@@ -62,6 +62,34 @@ const userSchema = new mongoose.Schema({
   // e-mail. select:false = nunca sai em consultas sem pedir explicitamente.
   resetPasswordHash: { type: String, default: null, select: false },
   resetPasswordExpires: { type: Date, default: null, select: false },
+  // Como a conta foi criada: 'tag' (ativação pelo código da tag — cartão/pet e
+  // contas antigas) ou 'subscription' (cardápio/vitrine pelo site, com assinatura).
+  signupSource: { type: String, enum: ['tag', 'subscription'], default: 'tag' },
+
+  // Assinatura mensal (cardápio/vitrine), cobrada pelo Mercado Pago. Atualizada pelo
+  // webhook de pagamento. Nunca editável pelo lojista (fora de UPDATABLE_FIELDS).
+  subscription: {
+    status: { type: String, enum: ['none', 'pending', 'active', 'canceled'], default: 'none' },
+    activeUntil: { type: Date, default: null },
+    customerId: { type: String, default: '' },      // payer_id no Mercado Pago
+    subscriptionId: { type: String, default: '' },  // id da preapproval
+    invoiceUrl: { type: String, default: '' }       // link de pagamento (init_point)
+  },
+
+  // Endereço de entrega da tag física e situação do envio.
+  shipping: {
+    postalCode: { type: String, default: '' },
+    street: { type: String, default: '' },
+    number: { type: String, default: '' },
+    complement: { type: String, default: '' },
+    district: { type: String, default: '' },
+    city: { type: String, default: '' },
+    state: { type: String, default: '' },
+    status: { type: String, enum: ['none', 'pending', 'sent'], default: 'none' },
+    tagId: { type: String, default: '' },
+    sentAt: { type: Date, default: null }
+  },
+
   // Data em que aceitou os Termos de Uso e a Política de Privacidade (LGPD).
   // null em contas criadas antes do aceite obrigatório.
   termsAcceptedAt: { type: Date, default: null },

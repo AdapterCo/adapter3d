@@ -50,6 +50,11 @@ services:
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASS=${SMTP_PASS:-}
       - SMTP_FROM=${SMTP_FROM:-}
+      # Assinaturas (Mercado Pago). Sem MP_ACCESS_TOKEN, a página /assinar fica indisponível.
+      - MP_ACCESS_TOKEN=${MP_ACCESS_TOKEN:-}
+      - MP_WEBHOOK_SECRET=${MP_WEBHOOK_SECRET:-}
+      - PLAN_PRICE_MENU=${PLAN_PRICE_MENU:-39.90}
+      - PLAN_PRICE_STOREFRONT=${PLAN_PRICE_STOREFRONT:-39.90}
     networks:
       - adapter3d_internal
       - traefik9

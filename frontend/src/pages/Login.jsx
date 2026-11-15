@@ -176,6 +176,11 @@ export default function Login() {
             </form>
           )}
         </div>
+        <div className="px-8 pb-4 text-center">
+          <Link to="/assinar" className="block w-full py-3 rounded-lg border-2 border-blue-600 text-blue-700 font-medium hover:bg-blue-50">
+            Tem restaurante ou loja? Assine o cardápio ou a vitrine
+          </Link>
+        </div>
         <div className="px-8 pb-6 text-center text-xs text-gray-400 space-x-3">
           <Link to="/termos" className="hover:underline">Termos de Uso</Link>
           <Link to="/privacidade" className="hover:underline">Privacidade</Link>
