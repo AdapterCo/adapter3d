@@ -17,8 +17,15 @@ const publicUser = (u) => ({ id: u.id, slug: u.slug, email: u.email, name: u.nam
 const appUrl = () => (process.env.APP_URL || '').replace(/\/$/, '');
 
 // GET /api/billing/prices — preços exibidos na página de assinatura.
+// menu/storefront: preço do plano básico (formato antigo, mantido para páginas
+// ainda abertas com o frontend anterior). plans: todos os planos à venda.
 exports.prices = (req, res) => {
-  res.json({ menu: planOptions('menu'), storefront: planOptions('storefront'), available: mp.isConfigured() });
+  res.json({
+    menu: planPrice('menu'),
+    storefront: planPrice('storefront'),
+    plans: { menu: planOptions('menu'), storefront: planOptions('storefront') },
+    available: mp.isConfigured()
+  });
 };
 
 const planReason = (user, tier) => `${PLAN_LABEL[user.profileType] || 'Assinatura'} Adapter Cards (até ${tier} produtos) - ${user.slug}`;

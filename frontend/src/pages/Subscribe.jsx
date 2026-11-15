@@ -34,9 +34,10 @@ export default function Subscribe() {
 
   // Planos à venda para o tipo escolhido: [{ tier, price }]. Se o plano marcado
   // não existir para este tipo, usa o primeiro (30 produtos).
-  const options = Array.isArray(prices?.[type]) ? prices[type] : [];
+  const plansOf = (t) => (Array.isArray(prices?.plans?.[t]) ? prices.plans[t] : []);
+  const options = plansOf(type);
   const chosen = options.find(o => o.tier === tier) || options[0] || null;
-  const fromPrice = (t) => (Array.isArray(prices?.[t]) && prices[t].length ? Math.min(...prices[t].map(o => o.price)) : null);
+  const fromPrice = (t) => (plansOf(t).length ? Math.min(...plansOf(t).map(o => o.price)) : null);
 
   useEffect(() => {
     api.get('/billing/prices').then(r => setPrices(r.data)).catch(() => setPrices({ available: false }));
