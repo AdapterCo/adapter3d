@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { LogIn, Tag } from 'lucide-react';
 import api from '../services/api';
 
@@ -131,6 +131,9 @@ export default function Login() {
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                   required
                 />
+                <div className="text-right mt-1">
+                  <Link to="/esqueci-senha" className="text-sm text-blue-600 hover:underline">Esqueci minha senha</Link>
+                </div>
               </div>
 
               <button

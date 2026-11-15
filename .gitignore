@@ -8,3 +8,5 @@ backend/uploads/
 *.log
 .DS_Store
 .claude/
+backups/
+revisao-nfc/

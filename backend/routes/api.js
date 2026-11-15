@@ -7,6 +7,7 @@ const userController = require('../controllers/userController');
 const adminController = require('../controllers/adminController');
 const googleReviewController = require('../controllers/googleReviewController');
 const statsController = require('../controllers/statsController');
+const ogController = require('../controllers/ogController');
 const auth = require('../middleware/authMiddleware');
 const adminAuth = require('../middleware/adminAuth');
 const rateLimit = require('../middleware/rateLimit');
@@ -36,6 +37,21 @@ router.post('/auth/login', loginLimiter, authController.login);
 router.post('/auth/validate-tag', tagLimiter, authController.validateTag);
 router.post('/auth/register', registerLimiter, authController.register);
 router.get('/auth/me', auth, authController.getMe);
+
+// Recuperação de senha (limites baixos: cada pedido dispara um e-mail).
+router.post('/auth/forgot-password', rateLimit({
+  windowMs: 60 * 60 * 1000, max: 5,
+  message: 'Muitos pedidos de recuperação. Tente novamente mais tarde.'
+}), authController.forgotPassword);
+router.post('/auth/reset-password', rateLimit({
+  windowMs: 15 * 60 * 1000, max: 10,
+  message: 'Muitas tentativas. Aguarde alguns minutos.'
+}), authController.resetPassword);
+
+// Prévia de link (Open Graph) para WhatsApp/Instagram/Facebook. O nginx do
+// frontend encaminha para cá só os robôs de prévia; pessoas recebem o SPA.
+router.get('/og/tag/:id', ogController.byTag);
+router.get('/og/:slug', ogController.bySlug);
 
 // Public Card Route (By Slug)
 router.get('/users/slug/:slug', userController.getUserBySlug);

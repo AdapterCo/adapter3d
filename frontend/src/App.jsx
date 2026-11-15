@@ -4,6 +4,8 @@ import Admin from './pages/Admin';
 import PublicCard from './pages/PublicCard';
 import Register from './pages/Register';
 import TagRedirect from './pages/TagRedirect';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 function App() {
   return (
@@ -13,6 +15,8 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/tag/:id" element={<TagRedirect />} />
+        <Route path="/esqueci-senha" element={<ForgotPassword />} />
+        <Route path="/redefinir-senha" element={<ResetPassword />} />
         <Route path="/:slug" element={<PublicCard />} />
       </Routes>
     </Router>

@@ -58,6 +58,10 @@ const userSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true }, // The Tag ID
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
+  // Recuperação de senha: guardamos só o hash (SHA-256) do token enviado por
+  // e-mail. select:false = nunca sai em consultas sem pedir explicitamente.
+  resetPasswordHash: { type: String, default: null, select: false },
+  resetPasswordExpires: { type: Date, default: null, select: false },
   slug: { type: String, required: true, unique: true }, // The custom URL
   // Slugs antigos deste perfil: links/QRs impressos com o endereço antigo
   // continuam abrindo o perfil. Não podem ser usados por outro usuário.
