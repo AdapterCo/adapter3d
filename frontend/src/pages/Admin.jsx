@@ -22,13 +22,14 @@ import StatsTab from '../components/admin/StatsTab';
 import PlanTab from '../components/admin/PlanTab';
 import HoursTab from '../components/admin/HoursTab';
 import TablesTab from '../components/admin/TablesTab';
+import CustomersTab from '../components/admin/CustomersTab';
 import ProfileChecklist from '../components/admin/ProfileChecklist';
 
 const TABS_BY_TYPE = {
   business: ['basic', 'stats', 'links', 'review', 'theme'],
   pet: ['basic', 'stats', 'pet', 'owner', 'health', 'lost', 'theme'],
-  menu: ['basic', 'stats', 'plan', 'categories', 'products', 'orders', 'tables', 'hours', 'contact', 'review', 'theme'],
-  storefront: ['basic', 'stats', 'plan', 'categories', 'products', 'orders', 'hours', 'contact', 'review', 'theme']
+  menu: ['basic', 'stats', 'customers', 'plan', 'categories', 'products', 'orders', 'tables', 'hours', 'contact', 'review', 'theme'],
+  storefront: ['basic', 'stats', 'customers', 'plan', 'categories', 'products', 'orders', 'hours', 'contact', 'review', 'theme']
 };
 
 const TAB_LABEL = {
@@ -47,7 +48,8 @@ const TAB_LABEL = {
   stats: '📊 Estatísticas',
   plan: '💳 Plano',
   hours: '🕒 Horários',
-  tables: '🍽️ Mesas'
+  tables: '🍽️ Mesas',
+  customers: '👥 Clientes'
 };
 
 const TAB_COMPONENT = {
@@ -66,7 +68,8 @@ const TAB_COMPONENT = {
   stats: StatsTab,
   plan: PlanTab,
   hours: HoursTab,
-  tables: TablesTab
+  tables: TablesTab,
+  customers: CustomersTab
 };
 
 export default function Admin() {

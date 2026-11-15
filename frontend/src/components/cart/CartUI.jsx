@@ -9,6 +9,7 @@ import { deliveryQuote, zonesOf } from '../../utils/delivery';
 import { centsToBRL, inputToCents, centsToInput, buildWhatsappLink } from '../admin/utils';
 import { buildOrderMessage, PAYMENT_LABEL } from './orderMessage';
 import { track } from '../../services/track';
+import api from '../../services/api';
 
 const CUSTOMER_KEY = 'cart:customer';
 
@@ -52,6 +53,9 @@ export default function CartUI({ cart, data, buttonStyle }) {
   const stored = readCustomer();
   const [mode, setMode] = useState(allowDelivery ? 'delivery' : 'pickup');
   const [name, setName] = useState(stored.name || '');
+  // Lista de clientes da loja: só com a caixa marcada (opt-in, LGPD). Desmarcada por padrão.
+  const [optIn, setOptIn] = useState(false);
+  const [phone, setPhone] = useState(stored.phone || '');
   const [address, setAddress] = useState(stored.address || '');
   const [zoneId, setZoneId] = useState(stored.zoneId || '');
   const [payment, setPayment] = useState(methods[0]);
@@ -99,6 +103,7 @@ export default function CartUI({ cart, data, buttonStyle }) {
     if (cart.lines.length === 0) return setError('Seu carrinho está vazio.');
     if (belowMin) return setError(`Pedido mínimo de ${centsToBRL(minOrder)}.`);
     if (!tableMode && !name.trim()) return setError('Informe seu nome.');
+    if (optIn && phone.replace(/\D/g, '').length < 10) return setError('Informe seu WhatsApp com DDD para receber as novidades.');
     if (effectiveMode === 'delivery' && quote.needsZone) return setError('Escolha o seu bairro.');
     if (effectiveMode === 'delivery' && !address.trim()) return setError('Informe o endereço de entrega.');
     const change = payment === 'cash' ? inputToCents(changeFor) : 0;
@@ -129,7 +134,11 @@ export default function CartUI({ cart, data, buttonStyle }) {
       changeFor: change,
       notes
     });
-    saveCustomer({ name: name.trim(), address: address.trim(), zoneId });
+    saveCustomer({ name: name.trim(), address: address.trim(), zoneId, phone: optIn ? phone.trim() : stored.phone || '' });
+    if (optIn && !data._preview && data.slug) {
+      // Não bloqueia nem falha o pedido: ele já vai para o WhatsApp.
+      api.post('/customers', { slug: data.slug, name: name.trim(), phone: phone.trim(), consent: true, total }).catch(() => {});
+    }
     track(data, 'order', {
       value: total,
       items: cart.lines.map(l => ({ productId: String(l.productId), name: l.optionsText ? `${l.product.name} (${l.optionsText})` : l.product.name, qty: l.qty, price: l.unitPrice }))
@@ -267,6 +276,20 @@ export default function CartUI({ cart, data, buttonStyle }) {
                     placeholder={tableMode ? 'Seu nome (opcional)' : 'Seu nome'}
                     className="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-gray-300"
                   />
+                  <label className="flex items-start gap-2 text-sm text-gray-700">
+                    <input type="checkbox" checked={optIn} onChange={(e) => setOptIn(e.target.checked)} className="w-4 h-4 mt-0.5" />
+                    <span>Quero receber novidades e promoções{data.name ? <> de <strong>{data.name}</strong></> : ''} pelo WhatsApp.</span>
+                  </label>
+                  {optIn && (
+                    <div>
+                      <input
+                        value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={20}
+                        type="tel" inputMode="tel" autoComplete="tel" placeholder="Seu WhatsApp com DDD"
+                        className="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-gray-300"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">A loja guarda seu nome e WhatsApp só para isso. Peça a remoção quando quiser. <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="underline">Privacidade</a></p>
+                    </div>
+                  )}
                   {effectiveMode === 'delivery' && zones.length > 0 && (
                     <select
                       value={quote.zone ? String(quote.zone._id) : ''} onChange={(e) => setZoneId(e.target.value)}

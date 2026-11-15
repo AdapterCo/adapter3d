@@ -9,6 +9,7 @@ const googleReviewController = require('../controllers/googleReviewController');
 const statsController = require('../controllers/statsController');
 const ogController = require('../controllers/ogController');
 const billingController = require('../controllers/billingController');
+const customerController = require('../controllers/customerController');
 const auth = require('../middleware/authMiddleware');
 const adminAuth = require('../middleware/adminAuth');
 const rateLimit = require('../middleware/rateLimit');
@@ -86,6 +87,14 @@ router.post('/track', rateLimit({
   message: 'Muitas requisições.'
 }), express.text({ type: 'text/plain', limit: '16kb' }), statsController.track);
 router.get('/stats', auth, statsController.getStats);
+
+// Lista de clientes (com consentimento). POST é público (carrinho); GET/DELETE do lojista.
+router.post('/customers', rateLimit({
+  windowMs: 60 * 60 * 1000, max: 30,
+  message: 'Muitas requisições.'
+}), customerController.register);
+router.get('/customers', auth, customerController.list);
+router.delete('/customers/:id', auth, customerController.remove);
 
 // Assinaturas (cardápio/vitrine) via Mercado Pago.
 router.get('/billing/prices', billingController.prices);
