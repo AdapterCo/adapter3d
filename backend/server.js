@@ -31,7 +31,11 @@ app.use(express.json());
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/digitalcard')
-.then(() => console.log('MongoDB connected'))
+.then(() => {
+  console.log('MongoDB connected');
+  // Resumo mensal por e-mail (verifica de hora em hora; envia no dia 1 após 9h).
+  require('./services/monthlyReport').startMonthlyReportScheduler();
+})
 .catch(err => console.log('MongoDB connection error:', err));
 
 // Saúde do serviço (monitor de disponibilidade, ex.: UptimeRobot).

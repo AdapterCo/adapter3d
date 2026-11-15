@@ -124,7 +124,7 @@ function HBarList({ rows }) {
   );
 }
 
-export default function StatsTab({ data }) {
+export default function StatsTab({ data, setData }) {
   const [days, setDays] = useState(30);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -170,6 +170,12 @@ export default function StatsTab({ data }) {
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
+
+      <label className="flex items-center gap-2 text-sm text-gray-700">
+        <input type="checkbox" className="w-4 h-4" checked={data.emailReports !== false}
+          onChange={() => setData(prev => ({ ...prev, emailReports: prev.emailReports === false }))} />
+        Receber o resumo do mês por e-mail (todo dia 1) <span className="text-gray-400">· clique em Salvar para aplicar</span>
+      </label>
 
       {stats && (
         <>

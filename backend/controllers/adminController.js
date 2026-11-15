@@ -249,3 +249,22 @@ exports.linkTag = async (req, res) => {
     res.status(500).json({ message: 'Erro ao vincular tag.' });
   }
 };
+
+
+// POST /api/admin/users/:id/send-report { month?: 'AAAA-MM' }
+// Envia agora o resumo mensal de uma conta (teste). Padrão: mês anterior.
+exports.sendReport = async (req, res) => {
+  try {
+    const { sendMonthlyReport, prevMonth } = require('../services/monthlyReport');
+    const user = await User.findOne({ id: req.params.id }).select('id email name profileType').lean();
+    if (!user) return res.status(404).json({ message: 'Usuário não encontrado.' });
+    const now = new Date(Date.now() - 3 * 3600 * 1000);
+    const current = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+    const month = /^\d{4}-\d{2}$/.test(req.body?.month || '') ? req.body.month : prevMonth(current);
+    const result = await sendMonthlyReport(user, month, { force: true });
+    res.json({ month, to: user.email, ...result });
+  } catch (error) {
+    console.error('admin sendReport error:', error);
+    res.status(500).json({ message: 'Erro ao enviar resumo.' });
+  }
+};

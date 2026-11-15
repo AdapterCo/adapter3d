@@ -102,6 +102,10 @@ const userSchema = new mongoose.Schema({
     sentAt: { type: Date, default: null }
   },
 
+  // Resumo mensal por e-mail (dia 1). O lojista pode desligar em Estatísticas.
+  emailReports: { type: Boolean, default: true },
+  reports: { lastMonthlySent: { type: String, default: '' } }, // 'AAAA-MM' já enviado
+
   // Data em que aceitou os Termos de Uso e a Política de Privacidade (LGPD).
   // null em contas criadas antes do aceite obrigatório.
   termsAcceptedAt: { type: Date, default: null },

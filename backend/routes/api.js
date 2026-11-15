@@ -107,5 +107,6 @@ router.get('/admin/users', adminAuth, adminController.listUsers);
 router.post('/admin/users/:id/active-until', adminAuth, adminController.setActiveUntil);
 router.get('/admin/shipments', adminAuth, adminController.listShipments);
 router.post('/admin/shipments/:id/link-tag', adminAuth, adminController.linkTag);
+router.post('/admin/users/:id/send-report', adminAuth, adminController.sendReport);
 
 module.exports = router;
