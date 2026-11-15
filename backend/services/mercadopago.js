@@ -60,14 +60,27 @@ const getPayment = (id) => new Payment(getClient()).get({ id });
 const getChargeback = (id) => new Chargeback(getClient()).get({ id });
 
 // Valida o header x-signature do webhook. Lança erro se inválido.
+// IDs alfanuméricos (ex.: assinaturas) entram no HMAC em minúsculas segundo a
+// regra do Mercado Pago; o SDK usa o ID como veio. Por isso, se a primeira
+// validação falhar e o ID tiver letras, tenta de novo em minúsculas. As duas
+// tentativas exigem a chave secreta: notificação forjada continua recusada.
 function validateWebhookSignature({ xSignature, xRequestId, dataId }) {
   const secret = process.env.MP_WEBHOOK_SECRET;
   if (!secret) throw new Error('MP_WEBHOOK_SECRET não configurado');
-  WebhookSignatureValidator.validate({ xSignature, xRequestId, dataId, secret });
+  try {
+    WebhookSignatureValidator.validate({ xSignature, xRequestId, dataId, secret });
+  } catch (err) {
+    const lower = typeof dataId === 'string' ? dataId.toLowerCase() : dataId;
+    if (!lower || lower === dataId) throw err;
+    WebhookSignatureValidator.validate({ xSignature, xRequestId, dataId: lower, secret });
+  }
 }
 
+// Recurso inexistente no Mercado Pago (ex.: ID fictício de uma simulação).
+const isNotFound = (err) => err?.status === 404 || err?.name === 'MPNotFoundError';
+
 module.exports = {
-  isConfigured, errorMessage,
+  isConfigured, errorMessage, isNotFound,
   createSubscription, getSubscription, cancelSubscription, getAuthorizedPayment, getPayment, getChargeback,
   validateWebhookSignature
 };

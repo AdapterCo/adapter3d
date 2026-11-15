@@ -267,7 +267,7 @@ exports.webhook = async (req, res) => {
   try {
     mp.validateWebhookSignature({ xSignature: req.get('x-signature'), xRequestId: req.get('x-request-id'), dataId });
   } catch (err) {
-    console.warn('webhook Mercado Pago: assinatura inválida:', err.message);
+    console.warn(`webhook Mercado Pago: assinatura inválida (tipo ${type || '?'}, id ${dataId || '?'}):`, err.message);
     return res.status(401).json({ message: 'unauthorized' });
   }
   if (!dataId || !type) return res.json({ ok: true });
@@ -326,7 +326,13 @@ exports.webhook = async (req, res) => {
       .catch(err => { if (err?.code !== 11000) throw err; });
     res.json({ ok: true });
   } catch (error) {
-    console.error('billing webhook error:', mp.errorMessage(error));
+    // ID que não existe no Mercado Pago (ex.: notificação simulada no painel):
+    // não há o que processar. Responde 200 para o Mercado Pago não reenviar.
+    if (mp.isNotFound(error)) {
+      console.warn(`webhook Mercado Pago: ${type} ${dataId} não encontrado na API (simulação?). Ignorado.`);
+      return res.json({ ok: true, ignored: 'not_found' });
+    }
+    console.error(`billing webhook error (${type} ${dataId}):`, mp.errorMessage(error));
     res.status(500).json({ message: 'error' });
   }
 };
