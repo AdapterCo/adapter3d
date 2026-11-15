@@ -6,7 +6,10 @@ const { normalizeSlug, isValidSlug } = require('../utils/validation');
 exports.getUserBySlug = async (req, res) => {
   try {
     const { slug } = req.params;
-    const user = await User.findOne({ slug }).select('-password -email'); // Don't expose private data
+    // Busca pelo slug atual; se não achar, por um slug antigo do perfil (o
+    // frontend corrige a URL para o slug atual).
+    const user = await User.findOne({ slug }).select('-password -email -previousSlugs')
+      || await User.findOne({ previousSlugs: slug }).select('-password -email -previousSlugs');
 
     if (!user) {
       return res.status(404).json({ message: 'Perfil não encontrado' });
@@ -108,7 +111,7 @@ exports.updateUser = async (req, res) => {
 
     if (updates.slug) {
       // Pet: slug é fixo (= tagId, gravado no QR da coleira). Ignora qualquer tentativa de mudar.
-      const currentUser = await User.findOne({ id }).select('profileType slug');
+      const currentUser = await User.findOne({ id }).select('profileType slug previousSlugs');
       if (currentUser?.profileType === 'pet') {
         delete updates.slug;
       } else {
@@ -117,9 +120,18 @@ exports.updateUser = async (req, res) => {
           return res.status(400).json({ message: 'Slug inválido ou reservado.' });
         }
         updates.slug = newSlug;
-        const existingSlug = await User.findOne({ slug: newSlug, id: { $ne: id } });
+        // Bloqueia também slugs antigos de outros perfis: links impressos com
+        // eles continuam apontando para o dono original.
+        const existingSlug = await User.findOne({
+          $or: [{ slug: newSlug }, { previousSlugs: newSlug }],
+          id: { $ne: id }
+        });
         if (existingSlug) {
           return res.status(400).json({ message: 'Este link (slug) já está em uso por outro usuário.' });
+        }
+        // Guarda o slug antigo (até 10) para os links antigos continuarem funcionando.
+        if (currentUser && currentUser.slug !== newSlug) {
+          updates.previousSlugs = [...(currentUser.previousSlugs || []).filter(s => s !== newSlug && s !== currentUser.slug), currentUser.slug].slice(-10);
         }
       }
     }

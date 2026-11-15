@@ -75,6 +75,11 @@ export default function PublicCard({ previewData }) {
         try {
           // In preview mode we don't fetch. In public view we fetch by slug.
           const response = await api.get(`/users/slug/${slug}`);
+          // Aberto por um slug antigo: troca a URL na barra para o slug atual
+          // (sem recarregar), para o visitante compartilhar o endereço certo.
+          if (response.data?.slug && response.data.slug !== slug) {
+            window.history.replaceState(window.history.state, '', `/${response.data.slug}`);
+          }
           setData(response.data);
         } catch (error) {
           console.error("Error fetching data", error);

@@ -118,7 +118,7 @@ exports.register = async (req, res) => {
     if (await User.findOne({ email }).collation(EMAIL_COLLATION)) {
       throw { _userError: 'Este email já está em uso.' };
     }
-    if (await User.findOne({ slug: resolvedSlug })) {
+    if (await User.findOne({ $or: [{ slug: resolvedSlug }, { previousSlugs: resolvedSlug }] })) {
       throw { _userError: 'Este complemento (URL) já está em uso.' };
     }
 

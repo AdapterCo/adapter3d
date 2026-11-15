@@ -59,6 +59,9 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   slug: { type: String, required: true, unique: true }, // The custom URL
+  // Slugs antigos deste perfil: links/QRs impressos com o endereço antigo
+  // continuam abrindo o perfil. Não podem ser usados por outro usuário.
+  previousSlugs: { type: [String], default: [], index: true },
 
   // Which kind of profile this user owns. Locked to the Tag's profileType at registration.
   profileType: { type: String, enum: ['business', 'pet', 'menu', 'storefront'], required: true, default: 'business', index: true },

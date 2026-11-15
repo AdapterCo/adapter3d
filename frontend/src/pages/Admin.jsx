@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Save, LogOut, Share2, Copy, ExternalLink, RefreshCw, Eye, X } from 'lucide-react';
+import { Save, LogOut, Share2, Copy, ExternalLink, RefreshCw, Eye, X, Nfc } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import api from '../services/api';
 import PublicCard from './PublicCard';
+import NfcWriter from '../components/admin/NfcWriter';
 
 import BasicTab from '../components/admin/BasicTab';
 import LinksTab from '../components/admin/LinksTab';
@@ -66,6 +67,7 @@ export default function Admin() {
   const [activeTab, setActiveTab] = useState('basic');
   const [showShareModal, setShowShareModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [showNfc, setShowNfc] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -144,6 +146,10 @@ export default function Admin() {
   const tabs = TABS_BY_TYPE[data.profileType] || TABS_BY_TYPE.business;
   const ActiveTabComponent = TAB_COMPONENT[activeTab] || BasicTab;
   const publicUrl = `${window.location.origin}/${data.slug}`;
+  // Endereço fixo da tag: é ele que vai no chip NFC e nos QRs impressos.
+  // /tag/:id redireciona para o slug atual, então trocar o link do perfil
+  // não quebra nada que já foi gravado ou impresso.
+  const permanentUrl = `${window.location.origin}/tag/${encodeURIComponent(data.id)}`;
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
@@ -159,6 +165,9 @@ export default function Admin() {
           <div className="flex gap-2">
             <button onClick={() => setShowPreviewModal(true)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg flex items-center transition-colors">
               <Eye className="w-5 h-5 mr-1" /> <span className="hidden sm:inline">Preview</span>
+            </button>
+            <button onClick={() => setShowNfc(true)} className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg flex items-center transition-colors" title="Gravar tag NFC">
+              <Nfc className="w-5 h-5 mr-1" /> <span className="hidden sm:inline">Gravar tag</span>
             </button>
             <button onClick={() => setShowShareModal(true)} className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg flex items-center transition-colors">
               <Share2 className="w-5 h-5 mr-1" /> <span className="hidden sm:inline">Compartilhar</span>
@@ -228,6 +237,8 @@ export default function Admin() {
         </div>
       )}
 
+      {showNfc && <NfcWriter url={permanentUrl} onClose={() => setShowNfc(false)} />}
+
       {/* Share Modal */}
       {showShareModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50 p-4">
@@ -236,9 +247,12 @@ export default function Admin() {
               Compartilhar Cartão
               <button onClick={() => setShowShareModal(false)} className="text-gray-400 hover:text-gray-600">X</button>
             </h3>
-            <div className="flex justify-center mb-6 p-4 bg-gray-50 rounded-xl border">
-              <QRCode value={publicUrl} size={180} />
+            <div className="flex justify-center mb-2 p-4 bg-gray-50 rounded-xl border">
+              <QRCode value={permanentUrl} size={180} />
             </div>
+            <p className="text-xs text-gray-500 text-center mb-5">
+              QR permanente: pode imprimir em placas e cartões. Continua funcionando mesmo se você mudar o link do perfil.
+            </p>
             <div className="space-y-3">
               <a href={publicUrl} target="_blank" rel="noopener noreferrer" className="w-full flex items-center justify-center p-3 border rounded-lg hover:bg-gray-50 transition-colors font-medium text-gray-700">
                 <ExternalLink className="w-4 h-4 mr-2" /> Abrir Link
@@ -247,7 +261,13 @@ export default function Admin() {
                 onClick={() => { navigator.clipboard.writeText(publicUrl); alert('Link copiado!'); }}
                 className="w-full flex items-center justify-center p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
               >
-                <Copy className="w-4 h-4 mr-2" /> Copiar Link
+                <Copy className="w-4 h-4 mr-2" /> Copiar link para compartilhar
+              </button>
+              <button
+                onClick={() => { setShowShareModal(false); setShowNfc(true); }}
+                className="w-full flex items-center justify-center p-3 border rounded-lg hover:bg-gray-50 transition-colors font-medium text-gray-700"
+              >
+                <Nfc className="w-4 h-4 mr-2" /> Gravar tag NFC
               </button>
             </div>
           </div>
