@@ -1,11 +1,42 @@
+import { presetsFor, previewBackground, isPresetActive } from './themePresets';
+
 export default function ThemeTab({ data, setData, onImageUpload }) {
   const handleThemeChange = (e) => {
     const { name, value } = e.target;
     setData({ ...data, theme: { ...data.theme, [name]: value } });
   };
 
+  const presets = presetsFor(data.profileType);
+  const applyPreset = (preset) => setData({ ...data, theme: { ...data.theme, ...preset.theme } });
+
   return (
     <div className="space-y-8 max-w-2xl">
+      <div className="space-y-3">
+        <div className="border-b pb-2">
+          <h3 className="font-semibold text-lg">Temas prontos</h3>
+          <p className="text-xs text-gray-500">Escolha um tema e clique em Salvar. Depois dá para ajustar as cores abaixo.</p>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {presets.map(p => {
+            const active = isPresetActive(data.theme, p.theme);
+            return (
+              <button
+                key={p.id} type="button" onClick={() => applyPreset(p)} aria-pressed={active}
+                className={`rounded-xl overflow-hidden border text-left transition-all hover:shadow-md ${active ? 'ring-2 ring-blue-500 border-blue-500' : 'border-gray-200'}`}
+              >
+                <div className="h-20 p-3 flex flex-col justify-between" style={{ background: previewBackground(p.theme) }}>
+                  <span className="text-sm font-bold truncate" style={{ color: p.theme.textColor }}>{p.emoji} {p.name}</span>
+                  <span className="self-start px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ backgroundColor: p.theme.buttonColor, color: p.theme.buttonTextColor }}>{data.profileType === 'menu' || data.profileType === 'storefront' ? 'Pedir' : 'Contato'}</span>
+                </div>
+                <div className="px-2 py-1.5 text-xs font-medium text-gray-700 bg-white flex items-center justify-between">
+                  {p.name}{active && <span className="text-blue-600">✓</span>}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="space-y-4">
         <h3 className="font-semibold text-lg border-b pb-2">Fundo (Background)</h3>
         <div className="grid grid-cols-3 gap-3">
