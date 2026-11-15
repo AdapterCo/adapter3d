@@ -164,6 +164,28 @@ const userSchema = new mongoose.Schema({
     paymentMethods: {
       type: [{ type: String, enum: ['pix', 'card', 'cash'] }],
       default: () => ['pix', 'card', 'cash']
+    },
+    // Dados do recebedor para o Pix copia e cola com valor (padrão BR Code).
+    // A chave é o campo `pix` do perfil.
+    pixName: { type: String, default: '', trim: true, maxlength: 25 },
+    pixCity: { type: String, default: '', trim: true, maxlength: 15 }
+  },
+
+  // Horário de funcionamento (cardápio/vitrine). Fora do horário o perfil
+  // mostra "Fechado" e o carrinho não envia pedidos. Horário de Brasília.
+  // end < start = vira a noite (ex.: 18:00 às 02:00).
+  businessHours: {
+    enabled: { type: Boolean, default: false },
+    days: {
+      type: [{
+        _id: false,
+        day: { type: Number, min: 0, max: 6 },          // 0 = domingo
+        open: { type: Boolean, default: true },
+        start: { type: String, default: '08:00', match: /^([01]\d|2[0-3]):[0-5]\d$/ },
+        end: { type: String, default: '18:00', match: /^([01]\d|2[0-3]):[0-5]\d$/ }
+      }],
+      default: () => [0, 1, 2, 3, 4, 5, 6].map(day => ({ day, open: day !== 0, start: '08:00', end: '18:00' })),
+      validate: { validator: (arr) => Array.isArray(arr) && arr.length <= 7, message: 'Horário inválido.' }
     }
   },
 

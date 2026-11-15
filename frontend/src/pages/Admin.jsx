@@ -20,12 +20,13 @@ import ReviewTab from '../components/admin/ReviewTab';
 import OrdersTab from '../components/admin/OrdersTab';
 import StatsTab from '../components/admin/StatsTab';
 import PlanTab from '../components/admin/PlanTab';
+import HoursTab from '../components/admin/HoursTab';
 
 const TABS_BY_TYPE = {
   business: ['basic', 'stats', 'links', 'review', 'theme'],
   pet: ['basic', 'stats', 'pet', 'owner', 'health', 'lost', 'theme'],
-  menu: ['basic', 'stats', 'plan', 'categories', 'products', 'orders', 'contact', 'review', 'theme'],
-  storefront: ['basic', 'stats', 'plan', 'categories', 'products', 'orders', 'contact', 'review', 'theme']
+  menu: ['basic', 'stats', 'plan', 'categories', 'products', 'orders', 'hours', 'contact', 'review', 'theme'],
+  storefront: ['basic', 'stats', 'plan', 'categories', 'products', 'orders', 'hours', 'contact', 'review', 'theme']
 };
 
 const TAB_LABEL = {
@@ -42,7 +43,8 @@ const TAB_LABEL = {
   review: '📍 Google Maps',
   orders: '🛒 Pedidos',
   stats: '📊 Estatísticas',
-  plan: '💳 Plano'
+  plan: '💳 Plano',
+  hours: '🕒 Horários'
 };
 
 const TAB_COMPONENT = {
@@ -59,7 +61,8 @@ const TAB_COMPONENT = {
   review: ReviewTab,
   orders: OrdersTab,
   stats: StatsTab,
-  plan: PlanTab
+  plan: PlanTab,
+  hours: HoursTab
 };
 
 export default function Admin() {

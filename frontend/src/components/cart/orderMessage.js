@@ -9,11 +9,11 @@ export const PAYMENT_LABEL = {
 // Monta o texto do pedido enviado ao WhatsApp do lojista.
 // Asteriscos = negrito no WhatsApp.
 export function buildOrderMessage({
-  storeName, lines, subtotal, deliveryFee, total,
+  orderRef, storeName, lines, subtotal, deliveryFee, total,
   mode, customerName, customerAddress, payment, changeFor, notes
 }) {
   const out = [];
-  out.push(`*Novo pedido${storeName ? ` - ${storeName}` : ''}*`);
+  out.push(`*Novo pedido${orderRef ? ` #${orderRef}` : ''}${storeName ? ` - ${storeName}` : ''}*`);
   out.push('');
   for (const l of lines) {
     out.push(`${l.qty}x ${l.product.name} - ${centsToBRL(l.qty * l.product.price)}`);

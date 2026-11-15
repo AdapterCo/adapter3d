@@ -5,6 +5,7 @@ import GoogleReviewButton from '../components/GoogleReviewButton';
 import DirectionsButton from '../components/DirectionsButton';
 import CartUI, { QtyControl } from '../components/cart/CartUI';
 import useCart from '../hooks/useCart';
+import OpenStatus from '../components/OpenStatus';
 import { track } from '../services/track';
 
 export default function StorefrontProfile({ data }) {
@@ -88,6 +89,7 @@ export default function StorefrontProfile({ data }) {
           )}
           <h1 className="text-2xl font-bold text-center" style={textStyle}>{data.name}</h1>
           <p className="text-sm opacity-70 mt-1" style={textStyle}>Vitrine</p>
+          <OpenStatus hours={data.businessHours} />
           {data.address && (
             <p className="text-sm opacity-80 mt-2 flex items-center gap-1 text-center" style={textStyle}>
               <MapPin className="w-4 h-4 flex-shrink-0" /> {data.address}

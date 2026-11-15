@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { ShoppingBag, X, Minus, Plus, Trash2, MessageCircle, CheckCircle2 } from 'lucide-react';
+import { ShoppingBag, X, Minus, Plus, Trash2, MessageCircle, CheckCircle2, Copy } from 'lucide-react';
+import QRCode from 'react-qr-code';
+import { openStatus } from '../../utils/hours';
+import { buildPixPayload, normalizePixKey } from '../../utils/pix';
 import { centsToBRL, inputToCents, centsToInput, buildWhatsappLink } from '../admin/utils';
 import { buildOrderMessage, PAYMENT_LABEL } from './orderMessage';
 import { track } from '../../services/track';
@@ -48,6 +51,8 @@ export default function CartUI({ cart, data, buttonStyle }) {
   const [changeFor, setChangeFor] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
+  const [order, setOrder] = useState(null); // { ref, total, pixPayload } do último pedido
+  const [pixCopied, setPixCopied] = useState(false);
 
   if (!cart.enabled) return null;
 
@@ -56,8 +61,13 @@ export default function CartUI({ cart, data, buttonStyle }) {
   const total = cart.subtotal + fee;
   const belowMin = minOrder > 0 && cart.subtotal < minOrder;
 
+  // Horário de funcionamento: fora dele, o pedido não é enviado.
+  const hoursStatus = openStatus(data.businessHours);
+  const closed = hoursStatus.configured && !hoursStatus.open;
+
   const handleSend = () => {
     setError('');
+    if (closed) return setError(`Estamos fechados agora. ${hoursStatus.label}.`);
     if (cart.lines.length === 0) return setError('Seu carrinho está vazio.');
     if (belowMin) return setError(`Pedido mínimo de ${centsToBRL(minOrder)}.`);
     if (!name.trim()) return setError('Informe seu nome.');
@@ -65,7 +75,15 @@ export default function CartUI({ cart, data, buttonStyle }) {
     const change = payment === 'cash' ? inputToCents(changeFor) : 0;
     if (payment === 'cash' && change > 0 && change < total) return setError('O troco precisa ser para um valor maior que o total.');
 
+    // Número curto do pedido: aparece na mensagem e no Pix, para o lojista conferir.
+    const orderRef = Array.from(crypto.getRandomValues(new Uint8Array(4)), b => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 32]).join('');
+    const pixKey = normalizePixKey(data.pix);
+    const pixPayload = payment === 'pix' && pixKey
+      ? buildPixPayload({ key: pixKey, name: data.orderSettings?.pixName || data.name, city: data.orderSettings?.pixCity, amount: total, txid: orderRef })
+      : '';
+
     const message = buildOrderMessage({
+      orderRef,
       storeName: data.name,
       lines: cart.lines,
       subtotal: cart.subtotal,
@@ -84,7 +102,14 @@ export default function CartUI({ cart, data, buttonStyle }) {
       items: cart.lines.map(l => ({ productId: String(l.productId), name: l.product.name, qty: l.qty, price: l.product.price || 0 }))
     });
     window.open(buildWhatsappLink(data.whatsapp, message), '_blank', 'noopener');
+    setOrder({ ref: orderRef, total, pixPayload });
     setSent(true);
+  };
+
+  const copyPix = () => {
+    navigator.clipboard.writeText(order.pixPayload);
+    setPixCopied(true);
+    setTimeout(() => setPixCopied(false), 2500);
   };
 
   const startNew = () => {
@@ -127,8 +152,18 @@ export default function CartUI({ cart, data, buttonStyle }) {
             {sent ? (
               <div className="p-6 text-center space-y-4">
                 <CheckCircle2 className="w-14 h-14 mx-auto text-green-600" />
-                <h3 className="text-lg font-bold">Pedido pronto no WhatsApp!</h3>
+                <h3 className="text-lg font-bold">Pedido {order?.ref ? `#${order.ref} ` : ''}pronto no WhatsApp!</h3>
                 <p className="text-sm text-gray-600">Confira a mensagem e toque em <strong>enviar</strong> no WhatsApp para concluir o pedido.</p>
+                {order?.pixPayload && (
+                  <div className="border rounded-xl p-4 space-y-3 text-left">
+                    <p className="font-semibold text-center">Pague com Pix · {centsToBRL(order.total)}</p>
+                    <div className="flex justify-center bg-white p-2"><QRCode value={order.pixPayload} size={168} /></div>
+                    <button onClick={copyPix} className="w-full flex items-center justify-center gap-2 p-3 rounded-xl font-semibold" style={buttonStyle}>
+                      <Copy className="w-4 h-4" /> {pixCopied ? 'Código copiado!' : 'Copiar Pix copia e cola'}
+                    </button>
+                    <p className="text-xs text-gray-500 text-center">Abra o app do seu banco, escolha Pix copia e cola e cole o código. O valor já vem preenchido.</p>
+                  </div>
+                )}
                 <button onClick={startNew} className="w-full p-3 rounded-xl font-semibold" style={buttonStyle}>Fazer novo pedido</button>
                 <button onClick={() => setSent(false)} className="w-full p-3 rounded-xl font-medium border text-gray-700">Voltar ao carrinho</button>
               </div>
@@ -224,11 +259,14 @@ export default function CartUI({ cart, data, buttonStyle }) {
                   {belowMin && <p className="text-amber-700 text-xs pt-1">Pedido mínimo: {centsToBRL(minOrder)}</p>}
                 </div>
 
+                {closed && (
+                  <p className="text-sm bg-red-50 border border-red-200 text-red-800 rounded-lg p-3 text-center">{hoursStatus.label}. Pedidos só no horário de funcionamento.</p>
+                )}
                 {error && <p className="text-sm text-red-600">{error}</p>}
 
                 <button
                   onClick={handleSend}
-                  disabled={cart.lines.length === 0}
+                  disabled={cart.lines.length === 0 || closed}
                   className="w-full flex items-center justify-center p-4 rounded-xl font-semibold shadow disabled:opacity-50"
                   style={buttonStyle}
                 >

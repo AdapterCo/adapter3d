@@ -34,6 +34,13 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/digitalcard
 .then(() => console.log('MongoDB connected'))
 .catch(err => console.log('MongoDB connection error:', err));
 
+// Saúde do serviço (monitor de disponibilidade, ex.: UptimeRobot).
+// 200 = API e banco no ar; 503 = banco desconectado.
+app.get('/api/health', (req, res) => {
+  const dbUp = mongoose.connection.readyState === 1;
+  res.status(dbUp ? 200 : 503).json({ ok: dbUp, db: dbUp ? 'up' : 'down', uptime: Math.round(process.uptime()) });
+});
+
 // Routes
 app.use('/api', apiRoutes);
 
