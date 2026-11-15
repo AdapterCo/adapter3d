@@ -1,4 +1,5 @@
-import { Trash2, ArrowUp, ArrowDown, ImageIcon, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { useState } from 'react';
+import { Trash2, ArrowUp, ArrowDown, ImageIcon, Eye, EyeOff, Sparkles, Ban, ChevronDown, ChevronUp, Plus } from 'lucide-react';
 import api from '../../services/api';
 import { centsToInput, inputToCents, newObjectId } from './utils';
 
@@ -147,7 +148,35 @@ export default function ProductsTab({ data, setData }) {
                     <Sparkles className="w-4 h-4" />
                     <span>{p.upsell ? 'Sugerido' : 'Sugerir'}</span>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => updateProduct(index, 'soldOut', !p.soldOut)}
+                    className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
+                      p.soldOut ? 'bg-gray-800 border-gray-800 text-white' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                    }`}
+                    title="Continua aparecendo, mas não pode ser pedido"
+                  >
+                    <Ban className="w-4 h-4" />
+                    <span>{p.soldOut ? 'Esgotado' : 'Disponível'}</span>
+                  </button>
+                  <div className="flex rounded-lg border overflow-hidden bg-white focus-within:ring-2 focus-within:ring-blue-500" title="Preço antigo, aparece riscado (de/por). Deixe 0,00 para não usar.">
+                    <span className="px-2 py-2 text-gray-500 bg-gray-100 text-xs select-none border-r whitespace-nowrap">De R$</span>
+                    <input
+                      type="text" inputMode="numeric"
+                      value={centsToInput(p.compareAtPrice || 0)}
+                      onChange={(e) => updateProduct(index, 'compareAtPrice', inputToCents(e.target.value))}
+                      className="w-full px-2 py-2 outline-none text-right"
+                      aria-label="Preço antigo (de)"
+                    />
+                  </div>
                 </div>
+                <textarea
+                  value={p.description || ''} maxLength={500} rows={2}
+                  onChange={(e) => updateProduct(index, 'description', e.target.value)}
+                  placeholder="Descrição (opcional): ingredientes, tamanho, detalhes"
+                  className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+                <OptionGroupsEditor groups={p.optionGroups || []} onChange={(g) => updateProduct(index, 'optionGroups', g)} />
               </div>
 
               {/* Ações */}
@@ -171,6 +200,65 @@ export default function ProductsTab({ data, setData }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// Variações e adicionais (ex.: "Tamanho": P/M/G, escolha 1; "Adicionais": até 3).
+function OptionGroupsEditor({ groups, onChange }) {
+  const [open, setOpen] = useState(groups.length > 0);
+  const input = 'px-2 py-1.5 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white';
+  const setGroup = (gi, patch) => onChange(groups.map((g, i) => (i === gi ? { ...g, ...patch } : g)));
+  const setOption = (gi, oi, patch) => setGroup(gi, { options: groups[gi].options.map((o, i) => (i === oi ? { ...o, ...patch } : o)) });
+  const addGroup = (preset) => onChange([...groups, preset === 'size'
+    ? { _id: newObjectId(), name: 'Tamanho', min: 1, max: 1, options: [{ _id: newObjectId(), name: '', price: 0 }] }
+    : { _id: newObjectId(), name: 'Adicionais', min: 0, max: 3, options: [{ _id: newObjectId(), name: '', price: 0 }] }]);
+
+  return (
+    <div className="border rounded-lg bg-white">
+      <button type="button" onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-700">
+        <span>Variações e adicionais {groups.length > 0 && <span className="text-gray-400 font-normal">({groups.length})</span>}</span>
+        {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+      </button>
+      {open && (
+        <div className="px-3 pb-3 space-y-3">
+          <p className="text-xs text-gray-500">O valor de cada opção é somado ao preço do produto. Use 0,00 para opções sem custo (ex.: sabor).</p>
+          {groups.map((g, gi) => (
+            <div key={g._id || gi} className="border rounded-lg p-2 space-y-2 bg-gray-50">
+              <div className="flex flex-wrap items-center gap-2">
+                <input className={`${input} flex-grow min-w-[8rem]`} value={g.name} maxLength={60} placeholder="Nome do grupo (ex.: Tamanho)" onChange={(e) => setGroup(gi, { name: e.target.value })} />
+                <label className="text-xs text-gray-600 flex items-center gap-1">
+                  <input type="checkbox" checked={Number(g.min) > 0} onChange={(e) => setGroup(gi, { min: e.target.checked ? 1 : 0 })} /> obrigatório
+                </label>
+                <label className="text-xs text-gray-600 flex items-center gap-1">
+                  até
+                  <input type="number" min={1} max={20} className={`${input} w-14`} value={g.max || 1} onChange={(e) => setGroup(gi, { max: Math.max(1, Math.min(20, Number(e.target.value) || 1)) })} />
+                  {Number(g.max) === 1 ? 'escolha' : 'escolhas'}
+                </label>
+                <button type="button" onClick={() => onChange(groups.filter((_, i) => i !== gi))} className="p-1 text-red-500 hover:bg-red-100 rounded" aria-label="Remover grupo"><Trash2 className="w-4 h-4" /></button>
+              </div>
+              {g.options.map((o, oi) => (
+                <div key={o._id || oi} className="flex items-center gap-2 pl-2">
+                  <input className={`${input} flex-grow min-w-0`} value={o.name} maxLength={60} placeholder="Opção (ex.: Grande)" onChange={(e) => setOption(gi, oi, { name: e.target.value })} />
+                  <span className="text-xs text-gray-500 whitespace-nowrap">+ R$</span>
+                  <input className={`${input} w-20 text-right`} inputMode="numeric" value={centsToInput(o.price || 0)} onChange={(e) => setOption(gi, oi, { price: inputToCents(e.target.value) })} aria-label="Acréscimo no preço" />
+                  <button type="button" onClick={() => setGroup(gi, { options: g.options.filter((_, i) => i !== oi) })} className="p-1 text-gray-400 hover:text-red-500" aria-label="Remover opção"><Trash2 className="w-4 h-4" /></button>
+                </div>
+              ))}
+              {g.options.length < 20 && (
+                <button type="button" onClick={() => setGroup(gi, { options: [...g.options, { _id: newObjectId(), name: '', price: 0 }] })} className="ml-2 text-xs text-blue-600 hover:underline flex items-center gap-1"><Plus className="w-3 h-3" /> opção</button>
+              )}
+            </div>
+          ))}
+          {groups.length < 10 && (
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => addGroup('size')} className="text-xs px-3 py-1.5 rounded-lg border hover:bg-gray-50">+ Tamanho / variação</button>
+              <button type="button" onClick={() => addGroup('extras')} className="text-xs px-3 py-1.5 rounded-lg border hover:bg-gray-50">+ Adicionais</button>
+            </div>
+          )}
+          <p className="text-xs text-gray-400">Grupos ou opções sem nome são descartados ao salvar.</p>
+        </div>
+      )}
     </div>
   );
 }

@@ -14,6 +14,24 @@ const categorySchema = new mongoose.Schema({
   isVisible: { type: Boolean, default: true }
 });
 
+// Opção de um grupo (ex.: "Grande", "+ Bacon"). price = acréscimo em centavos.
+const optionSchema = new mongoose.Schema({
+  name: { type: String, required: true, trim: true, maxlength: 60 },
+  price: { type: Number, min: 0, max: 10000000, default: 0 }
+});
+
+// Grupo de opções. min 0 = opcional; max 1 = escolha única.
+const optionGroupSchema = new mongoose.Schema({
+  name: { type: String, required: true, trim: true, maxlength: 60 },
+  min: { type: Number, min: 0, max: 20, default: 0 },
+  max: { type: Number, min: 1, max: 20, default: 1 },
+  options: {
+    type: [optionSchema],
+    default: [],
+    validate: { validator: (a) => a.length <= 20, message: 'Máximo de 20 opções por grupo.' }
+  }
+});
+
 // Produto exibido no cardápio/vitrine. Preço em CENTAVOS (evita float).
 const productSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true, maxlength: 100 },
@@ -22,7 +40,16 @@ const productSchema = new mongoose.Schema({
   categoryId: { type: mongoose.Schema.Types.ObjectId, default: null },
   order: { type: Number, default: 0 },
   isVisible: { type: Boolean, default: true },
-  upsell: { type: Boolean, default: false } // sugerido no carrinho ("Peça também")
+  upsell: { type: Boolean, default: false }, // sugerido no carrinho ("Peça também")
+  description: { type: String, trim: true, maxlength: 500, default: '' },
+  compareAtPrice: { type: Number, min: 0, default: 0 }, // preço "de" (riscado) quando > price
+  soldOut: { type: Boolean, default: false }, // aparece, mas não pode ser pedido
+  // Variações e adicionais: ex. "Tamanho" (escolha 1) e "Adicionais" (até 3).
+  optionGroups: {
+    type: [optionGroupSchema],
+    default: [],
+    validate: { validator: (a) => a.length <= 10, message: 'Máximo de 10 grupos de opções por produto.' }
+  }
 }, { timestamps: true });
 
 const petSchema = new mongoose.Schema({

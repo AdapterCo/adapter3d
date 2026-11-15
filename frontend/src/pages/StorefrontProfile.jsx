@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Share2, MessageCircle, X, ImageIcon, MapPin, ShoppingBag, Plus } from 'lucide-react';
-import { centsToBRL, buildWhatsappLink } from '../components/admin/utils';
+import { Share2, ImageIcon, MapPin, Plus } from 'lucide-react';
 import GoogleReviewButton from '../components/GoogleReviewButton';
 import DirectionsButton from '../components/DirectionsButton';
-import CartUI, { QtyControl } from '../components/cart/CartUI';
+import CartUI from '../components/cart/CartUI';
+import ProductModal, { PriceTag, SoldOutBadge } from '../components/cart/ProductModal';
 import useCart from '../hooks/useCart';
 import OpenStatus from '../components/OpenStatus';
 import { track } from '../services/track';
@@ -26,7 +26,6 @@ export default function StorefrontProfile({ data }) {
   const categories = visibleCategories.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   const [selectedId, setSelectedId] = useState(null);
-  const [modalQty, setModalQty] = useState(1);
   const [activeCategory, setActiveCategory] = useState('all');
 
   const backgroundStyle = {
@@ -44,20 +43,8 @@ export default function StorefrontProfile({ data }) {
   const selected = products.find(p => String(p._id) === selectedId);
 
   const openProduct = (p) => {
-    setModalQty(1);
     setSelectedId(String(p._id));
     track(data, 'product_view', { target: String(p._id) });
-  };
-
-  const addSelectedToCart = () => {
-    cart.add(selected._id, modalQty);
-    setSelectedId(null);
-  };
-
-  const buildProductWhatsappLink = (product) => {
-    if (!data.whatsapp) return null;
-    const msg = `Olá! Tenho interesse em: ${product.name} (${centsToBRL(product.price)})`;
-    return buildWhatsappLink(data.whatsapp, msg);
   };
 
   const handleShare = () => {
@@ -141,7 +128,8 @@ export default function StorefrontProfile({ data }) {
                       {inCart}
                     </span>
                   )}
-                  <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
+                  {p.soldOut && <SoldOutBadge className="absolute top-2 left-2 z-10" />}
+                  <div className={`aspect-square bg-gray-100 flex items-center justify-center overflow-hidden ${p.soldOut ? 'opacity-60 grayscale' : ''}`}>
                     {p.image ? (
                       <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
                     ) : (
@@ -150,12 +138,16 @@ export default function StorefrontProfile({ data }) {
                   </div>
                   <div className="p-3">
                     <h3 className="font-medium text-sm text-gray-900 line-clamp-2 min-h-[2.5rem]">{p.name || '(sem nome)'}</h3>
-                    <p className="font-bold mt-1 text-base animate-pulse-once" style={{ color: theme.buttonColor }}>
-                      {centsToBRL(p.price)}
+                    <p className="font-bold mt-1 text-base">
+                      <PriceTag product={p} color={theme.buttonColor} />
                     </p>
-                    <div className="mt-2 text-center py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90 flex items-center justify-center gap-1" style={buttonStyle}>
-                      {cart.enabled ? <><Plus className="w-3.5 h-3.5" /> Adicionar</> : 'Comprar'}
-                    </div>
+                    {p.soldOut ? (
+                      <div className="mt-2 text-center py-1.5 rounded-lg text-xs font-semibold bg-gray-200 text-gray-600">Esgotado</div>
+                    ) : (
+                      <div className="mt-2 text-center py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90 flex items-center justify-center gap-1" style={buttonStyle}>
+                        {cart.enabled ? <><Plus className="w-3.5 h-3.5" /> Adicionar</> : 'Comprar'}
+                      </div>
+                    )}
                   </div>
                 </button>
               );
@@ -168,62 +160,8 @@ export default function StorefrontProfile({ data }) {
         </div>
       </div>
 
-      {/* Modal de produto */}
       {selected && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex justify-center items-center p-4" onClick={() => setSelectedId(null)}>
-          <div
-            className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden relative"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setSelectedId(null)}
-              className="absolute top-3 right-3 z-10 p-2 bg-white/90 rounded-full shadow-md hover:bg-white"
-            ><X className="w-5 h-5" /></button>
-
-            <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
-              {selected.image ? (
-                <img src={selected.image} alt={selected.name} className="w-full h-full object-cover" />
-              ) : (
-                <ImageIcon className="w-20 h-20 text-gray-300" />
-              )}
-            </div>
-
-            <div className="p-5">
-              <h2 className="text-xl font-bold text-gray-900">{selected.name || '(sem nome)'}</h2>
-              <p className="text-2xl font-bold mt-2" style={{ color: theme.buttonColor }}>
-                {centsToBRL(selected.price)}
-              </p>
-
-              {cart.enabled ? (
-                <div className="mt-5 flex items-center gap-3">
-                  <QtyControl qty={modalQty} onChange={(q) => setModalQty(Math.max(1, Math.min(99, q)))} buttonStyle={buttonStyle} />
-                  <button
-                    onClick={addSelectedToCart}
-                    className="flex-grow flex items-center justify-center p-3 rounded-xl font-semibold shadow-sm hover:scale-[1.02] transition-all"
-                    style={buttonStyle}
-                  >
-                    <ShoppingBag className="w-5 h-5 mr-2" />
-                    Adicionar · {centsToBRL(modalQty * (selected.price || 0))}
-                  </button>
-                </div>
-              ) : data.whatsapp ? (
-                <a
-                  href={buildProductWhatsappLink(selected)}
-                  target="_blank" rel="noopener noreferrer"
-                  className="mt-5 w-full flex items-center justify-center p-3 rounded-xl font-medium shadow-sm hover:scale-[1.02] transition-all"
-                  style={buttonStyle}
-                >
-                  <MessageCircle className="w-5 h-5 mr-2" />
-                  Comprar via WhatsApp
-                </a>
-              ) : (
-                <p className="mt-5 text-sm text-center text-gray-500">
-                  WhatsApp do estabelecimento não configurado.
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
+        <ProductModal key={selected._id} product={selected} data={data} cart={cart} buttonStyle={buttonStyle} accentColor={theme.buttonColor} onClose={() => setSelectedId(null)} />
       )}
 
       <CartUI cart={cart} data={data} buttonStyle={buttonStyle} />

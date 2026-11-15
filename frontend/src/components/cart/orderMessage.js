@@ -18,7 +18,9 @@ export function buildOrderMessage({
   if (mode === 'table' && table) out.push(`*🍽️ MESA ${table}* · consumo no local`);
   out.push('');
   for (const l of lines) {
-    out.push(`${l.qty}x ${l.product.name} - ${centsToBRL(l.qty * l.product.price)}`);
+    const price = l.unitPrice ?? l.product.price;
+    out.push(`${l.qty}x ${l.product.name} - ${centsToBRL(l.qty * price)}`);
+    if (l.optionsText) out.push(`   ↳ ${l.optionsText}`);
   }
   out.push('');
   out.push(`Subtotal: ${centsToBRL(subtotal)}`);

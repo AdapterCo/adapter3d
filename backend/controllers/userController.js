@@ -112,6 +112,20 @@ function pickUpdatableFields(body) {
   return updates;
 }
 
+// Grupos de opções vindos do painel: descarta grupos/opções sem nome (linhas em
+// branco que o lojista adicionou e não preencheu) e mantém min <= max <= nº de opções.
+function sanitizeOptionGroups(groups) {
+  if (!Array.isArray(groups)) return [];
+  return groups.map((g) => {
+    const options = (Array.isArray(g?.options) ? g.options : [])
+      .filter((o) => String(o?.name || '').trim())
+      .map((o) => ({ ...(OBJECT_ID_REGEX.test(String(o._id)) ? { _id: o._id } : {}), name: String(o.name).trim(), price: Math.max(0, Math.round(Number(o.price) || 0)) }));
+    const max = Math.max(1, Math.min(options.length || 1, Math.round(Number(g?.max) || 1)));
+    const min = Math.max(0, Math.min(max, Math.round(Number(g?.min) || 0)));
+    return { ...(OBJECT_ID_REGEX.test(String(g?._id)) ? { _id: g._id } : {}), name: String(g?.name || '').trim(), min, max, options };
+  }).filter((g) => g.name && g.options.length > 0);
+}
+
 // Update User Data
 exports.updateUser = async (req, res) => {
   try {
@@ -126,7 +140,8 @@ exports.updateUser = async (req, res) => {
     if (Array.isArray(updates.products)) {
       updates.products = updates.products.map((p) => ({
         ...p,
-        categoryId: p?.categoryId && OBJECT_ID_REGEX.test(String(p.categoryId)) ? p.categoryId : null
+        categoryId: p?.categoryId && OBJECT_ID_REGEX.test(String(p.categoryId)) ? p.categoryId : null,
+        optionGroups: sanitizeOptionGroups(p?.optionGroups)
       }));
     }
 

@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import { Share2, MapPin, Plus } from 'lucide-react';
-import { centsToBRL } from '../components/admin/utils';
 import GoogleReviewButton from '../components/GoogleReviewButton';
 import DirectionsButton from '../components/DirectionsButton';
 import CartUI, { QtyControl } from '../components/cart/CartUI';
+import ProductModal, { PriceTag, SoldOutBadge } from '../components/cart/ProductModal';
+import { hasOptions } from '../utils/productOptions';
+import { track } from '../services/track';
 import useCart from '../hooks/useCart';
 import OpenStatus from '../components/OpenStatus';
 
@@ -31,6 +34,12 @@ export default function MenuProfile({ data }) {
   const accentStyle = { color: theme.buttonColor };
   const buttonStyle = { backgroundColor: theme.buttonColor, color: theme.buttonTextColor };
   const cart = useCart(data);
+  const [selectedId, setSelectedId] = useState(null);
+  const selected = products.find(p => String(p._id) === selectedId);
+  const openProduct = (p) => {
+    setSelectedId(String(p._id));
+    track(data, 'product_view', { target: String(p._id) });
+  };
 
   // Agrupa produtos por categoria. Os "sem categoria" vão pro final.
   const grouped = categories.map(cat => ({
@@ -99,27 +108,29 @@ export default function MenuProfile({ data }) {
                 </h2>
                 <div className="space-y-3">
                   {items.map((p) => (
-                    <div key={p._id} className="flex gap-3 bg-white/80 backdrop-blur-sm rounded-xl p-3 shadow-sm">
-                      <div className="w-20 h-20 flex-shrink-0 rounded-lg bg-gray-100 overflow-hidden flex items-center justify-center">
+                    <div key={p._id} className={`flex gap-3 bg-white/80 backdrop-blur-sm rounded-xl p-3 shadow-sm ${p.soldOut ? 'opacity-70' : ''}`}>
+                      <button type="button" onClick={() => openProduct(p)} aria-label={`Ver ${p.name}`} className="w-20 h-20 flex-shrink-0 rounded-lg bg-gray-100 overflow-hidden flex items-center justify-center">
                         {p.image ? (
                           <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
                         ) : (
                           <span className="text-2xl opacity-40">🍽️</span>
                         )}
-                      </div>
-                      <div className="flex-grow flex flex-col justify-center min-w-0">
+                      </button>
+                      <button type="button" onClick={() => openProduct(p)} className="flex-grow flex flex-col justify-center min-w-0 text-left">
                         <h3 className="font-semibold text-gray-900 truncate">{p.name || '(sem nome)'}</h3>
-                        <p className="font-bold text-lg mt-1" style={accentStyle}>
-                          {centsToBRL(p.price)}
+                        {p.description && <p className="text-xs text-gray-600 line-clamp-2">{p.description}</p>}
+                        <p className="font-bold text-lg mt-1 flex items-center gap-2">
+                          <PriceTag product={p} color={accentStyle.color} />
+                          {p.soldOut && <SoldOutBadge />}
                         </p>
-                      </div>
-                      {cart.enabled && (
+                      </button>
+                      {cart.enabled && !p.soldOut && (
                         <div className="flex-shrink-0 self-center">
-                          {cart.qtyOf(p._id) > 0 ? (
+                          {cart.qtyOf(p._id) > 0 && !hasOptions(p) ? (
                             <QtyControl qty={cart.qtyOf(p._id)} onChange={(q) => cart.setQty(p._id, q)} buttonStyle={buttonStyle} size="sm" />
                           ) : (
                             <button
-                              onClick={() => cart.add(p._id)}
+                              onClick={() => (hasOptions(p) ? openProduct(p) : cart.add(p._id))}
                               className="p-2 rounded-full shadow hover:scale-105 transition-all"
                               style={buttonStyle}
                               aria-label={`Adicionar ${p.name}`}
@@ -139,6 +150,9 @@ export default function MenuProfile({ data }) {
           Criado com Adapter Cards · <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="underline">Privacidade</a>
         </div>
       </div>
+      {selected && (
+        <ProductModal key={selected._id} product={selected} data={data} cart={cart} buttonStyle={buttonStyle} accentColor={theme.buttonColor} onClose={() => setSelectedId(null)} />
+      )}
       <CartUI cart={cart} data={data} buttonStyle={buttonStyle} />
     </div>
   );

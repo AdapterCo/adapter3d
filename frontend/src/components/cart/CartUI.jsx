@@ -4,6 +4,7 @@ import QRCode from 'react-qr-code';
 import { openStatus } from '../../utils/hours';
 import { buildPixPayload, normalizePixKey } from '../../utils/pix';
 import { applyCoupon } from '../../utils/coupons';
+import { validateSelection } from '../../utils/productOptions';
 import { centsToBRL, inputToCents, centsToInput, buildWhatsappLink } from '../admin/utils';
 import { buildOrderMessage, PAYMENT_LABEL } from './orderMessage';
 import { track } from '../../services/track';
@@ -71,7 +72,7 @@ export default function CartUI({ cart, data, buttonStyle }) {
   // "Peça também": produtos marcados como sugestão que ainda não estão no carrinho.
   const visibleCats = new Set((data.categories || []).filter(c => c.isVisible !== false).map(c => String(c._id)));
   const suggestions = (data.products || [])
-    .filter(p => p.upsell && p.isVisible !== false && (!p.categoryId || visibleCats.has(String(p.categoryId))) && cart.qtyOf(p._id) === 0)
+    .filter(p => p.upsell && p.isVisible !== false && !p.soldOut && !validateSelection(p, []) && (!p.categoryId || visibleCats.has(String(p.categoryId))) && cart.qtyOf(p._id) === 0)
     .slice(0, 3);
   const applyTyped = () => {
     const r = applyCoupon(settings.coupons, couponInput, cart.subtotal);
@@ -122,7 +123,7 @@ export default function CartUI({ cart, data, buttonStyle }) {
     saveCustomer({ name: name.trim(), address: address.trim() });
     track(data, 'order', {
       value: total,
-      items: cart.lines.map(l => ({ productId: String(l.productId), name: l.product.name, qty: l.qty, price: l.product.price || 0 }))
+      items: cart.lines.map(l => ({ productId: String(l.productId), name: l.optionsText ? `${l.product.name} (${l.optionsText})` : l.product.name, qty: l.qty, price: l.unitPrice }))
     });
     window.open(buildWhatsappLink(data.whatsapp, message), '_blank', 'noopener');
     setOrder({ ref: orderRef, total, pixPayload });
@@ -200,13 +201,14 @@ export default function CartUI({ cart, data, buttonStyle }) {
                 ) : (
                   <ul className="divide-y">
                     {cart.lines.map(l => (
-                      <li key={l.productId} className="py-3 flex items-center gap-3">
+                      <li key={l.key} className="py-3 flex items-center gap-3">
                         <div className="flex-grow min-w-0">
                           <p className="font-medium truncate">{l.product.name}</p>
-                          <p className="text-sm text-gray-500">{centsToBRL(l.product.price)} cada</p>
+                          {l.optionsText && <p className="text-xs text-gray-500">{l.optionsText}</p>}
+                          <p className="text-sm text-gray-500">{centsToBRL(l.unitPrice)} cada</p>
                         </div>
-                        <QtyControl qty={l.qty} onChange={(q) => cart.setQty(l.productId, q)} buttonStyle={buttonStyle} size="sm" />
-                        <button onClick={() => cart.setQty(l.productId, 0)} className="p-1 text-gray-400 hover:text-red-500" aria-label="Remover">
+                        <QtyControl qty={l.qty} onChange={(q) => cart.setQty(l.key, q)} buttonStyle={buttonStyle} size="sm" />
+                        <button onClick={() => cart.setQty(l.key, 0)} className="p-1 text-gray-400 hover:text-red-500" aria-label="Remover">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </li>

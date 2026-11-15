@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { track } from '../services/track';
+import { lineKey, optionsLabel, unitPrice, validateSelection } from '../utils/productOptions';
 
 const MAX_QTY = 99;
 
@@ -34,7 +35,7 @@ function readTable(key, settings) {
 }
 
 // Carrinho do visitante, salvo no navegador por perfil (cart:<slug>).
-// Guarda só { productId, qty }: nome e preço vêm sempre do cardápio atual,
+// Guarda só { productId, qty, options? }: nome e preço vêm sempre do cardápio atual,
 // então mudanças de preço ou produtos ocultados refletem na hora.
 export default function useCart(data) {
   const key = `cart:${data.slug || 'preview'}`;
@@ -57,7 +58,7 @@ export default function useCart(data) {
     const visibleCats = new Set((data.categories || []).filter(c => c.isVisible !== false).map(c => String(c._id)));
     const map = new Map();
     for (const p of data.products || []) {
-      if (p.isVisible === false) continue;
+      if (p.isVisible === false || p.soldOut) continue;
       if (p.categoryId && !visibleCats.has(String(p.categoryId))) continue;
       map.set(String(p._id), p);
     }
@@ -65,29 +66,57 @@ export default function useCart(data) {
   }, [data.products, data.categories]);
 
   const lines = items
-    .map(i => ({ ...i, product: productsById.get(String(i.productId)) }))
-    .filter(l => l.product);
+    .map(i => {
+      const product = productsById.get(String(i.productId));
+      if (!product) return null;
+      const options = (i.options || []).map(String);
+      // Opção removida pelo lojista ou escolha que deixou de valer: a linha sai.
+      if (validateSelection(product, options)) return null;
+      return {
+        ...i,
+        key: lineKey(i.productId, options),
+        options,
+        product,
+        optionsText: optionsLabel(product, options),
+        unitPrice: unitPrice(product, options)
+      };
+    })
+    .filter(Boolean);
 
   const count = lines.reduce((s, l) => s + l.qty, 0);
-  const subtotal = lines.reduce((s, l) => s + l.qty * (l.product.price || 0), 0);
+  const subtotal = lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
 
-  const setQty = (productId, qty) => {
-    const id = String(productId);
+  const keyOf = (i) => lineKey(i.productId, i.options || []);
+
+  // Quantidade de uma linha (key = id do produto quando ele não tem opções).
+  const setQty = (key, qty) => {
+    const k = String(key);
     const q = Math.max(0, Math.min(MAX_QTY, Math.floor(qty)));
-    const delta = q - qtyOf(id);
-    if (delta > 0) track(data, 'add_to_cart', { target: id, value: delta });
+    const current = items.find(i => keyOf(i) === k);
+    const delta = q - (current?.qty || 0);
+    if (delta > 0) track(data, 'add_to_cart', { target: String(current?.productId || k.split('|')[0]), value: delta });
     setItems(prev => {
-      const rest = prev.filter(i => String(i.productId) !== id);
-      if (q === 0) return rest;
-      const existing = prev.find(i => String(i.productId) === id);
-      return existing
-        ? prev.map(i => (String(i.productId) === id ? { ...i, qty: q } : i))
-        : [...rest, { productId: id, qty: q }];
+      if (q === 0) return prev.filter(i => keyOf(i) !== k);
+      return prev.some(i => keyOf(i) === k)
+        ? prev.map(i => (keyOf(i) === k ? { ...i, qty: q } : i))
+        : prev;
     });
   };
 
-  const qtyOf = (productId) => items.find(i => String(i.productId) === String(productId))?.qty || 0;
-  const add = (productId, n = 1) => setQty(productId, qtyOf(productId) + n);
+  // Total do produto no carrinho, somando todas as variações.
+  const qtyOf = (productId) => items
+    .filter(i => String(i.productId) === String(productId))
+    .reduce((s, i) => s + i.qty, 0);
+
+  const add = (productId, n = 1, options = []) => {
+    const id = String(productId);
+    const opts = (options || []).map(String);
+    const k = lineKey(id, opts);
+    track(data, 'add_to_cart', { target: id, value: n });
+    setItems(prev => (prev.some(i => keyOf(i) === k)
+      ? prev.map(i => (keyOf(i) === k ? { ...i, qty: Math.min(MAX_QTY, i.qty + n) } : i))
+      : [...prev, opts.length ? { productId: id, qty: Math.min(MAX_QTY, n), options: opts } : { productId: id, qty: Math.min(MAX_QTY, n) }]));
+  };
   const clear = () => setItems([]);
 
   return { enabled, settings, table, lines, count, subtotal, add, setQty, qtyOf, clear };
