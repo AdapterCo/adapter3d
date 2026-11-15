@@ -10,7 +10,7 @@ export const PAYMENT_LABEL = {
 // Asteriscos = negrito no WhatsApp.
 export function buildOrderMessage({
   orderRef, storeName, lines, subtotal, deliveryFee, total,
-  mode, table, customerName, customerAddress, payment, changeFor, notes
+  mode, table, couponCode, discount, customerName, customerAddress, payment, changeFor, notes
 }) {
   const out = [];
   out.push(`*Novo pedido${orderRef ? ` #${orderRef}` : ''}${storeName ? ` - ${storeName}` : ''}*`);
@@ -22,6 +22,7 @@ export function buildOrderMessage({
   }
   out.push('');
   out.push(`Subtotal: ${centsToBRL(subtotal)}`);
+  if (discount > 0) out.push(`Cupom ${couponCode}: -${centsToBRL(discount)}`);
   if (mode === 'delivery') {
     out.push(`Entrega: ${deliveryFee > 0 ? centsToBRL(deliveryFee) : 'grátis'}`);
   }

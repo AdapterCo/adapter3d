@@ -3,6 +3,7 @@ import { ShoppingBag, X, Minus, Plus, Trash2, MessageCircle, CheckCircle2, Copy 
 import QRCode from 'react-qr-code';
 import { openStatus } from '../../utils/hours';
 import { buildPixPayload, normalizePixKey } from '../../utils/pix';
+import { applyCoupon } from '../../utils/coupons';
 import { centsToBRL, inputToCents, centsToInput, buildWhatsappLink } from '../admin/utils';
 import { buildOrderMessage, PAYMENT_LABEL } from './orderMessage';
 import { track } from '../../services/track';
@@ -53,6 +54,8 @@ export default function CartUI({ cart, data, buttonStyle }) {
   const [error, setError] = useState('');
   const [order, setOrder] = useState(null); // { ref, total, pixPayload } do último pedido
   const [pixCopied, setPixCopied] = useState(false);
+  const [couponInput, setCouponInput] = useState('');
+  const [couponCode, setCouponCode] = useState(''); // cupom aplicado
 
   if (!cart.enabled) return null;
 
@@ -61,7 +64,21 @@ export default function CartUI({ cart, data, buttonStyle }) {
   const effectiveMode = tableMode ? 'table'
     : mode === 'delivery' && !allowDelivery ? 'pickup' : mode === 'pickup' && !allowPickup ? 'delivery' : mode;
   const fee = effectiveMode === 'delivery' ? deliveryFee : 0;
-  const total = cart.subtotal + fee;
+  // Cupom: recalculado a cada mudança no carrinho (pode deixar de valer se o subtotal cair).
+  const couponResult = couponCode ? applyCoupon(settings.coupons, couponCode, cart.subtotal) : null;
+  const discount = couponResult?.discount || 0;
+  const total = cart.subtotal - discount + fee;
+  // "Peça também": produtos marcados como sugestão que ainda não estão no carrinho.
+  const visibleCats = new Set((data.categories || []).filter(c => c.isVisible !== false).map(c => String(c._id)));
+  const suggestions = (data.products || [])
+    .filter(p => p.upsell && p.isVisible !== false && (!p.categoryId || visibleCats.has(String(p.categoryId))) && cart.qtyOf(p._id) === 0)
+    .slice(0, 3);
+  const applyTyped = () => {
+    const r = applyCoupon(settings.coupons, couponInput, cart.subtotal);
+    if (r.error) { setError(r.error); return; }
+    setError('');
+    setCouponCode(r.coupon.code);
+  };
   const belowMin = minOrder > 0 && cart.subtotal < minOrder;
 
   // Horário de funcionamento: fora dele, o pedido não é enviado.
@@ -91,6 +108,8 @@ export default function CartUI({ cart, data, buttonStyle }) {
       lines: cart.lines,
       subtotal: cart.subtotal,
       deliveryFee: fee,
+      couponCode: discount > 0 ? couponCode : '',
+      discount,
       total,
       mode: effectiveMode,
       table: cart.table,
@@ -118,6 +137,8 @@ export default function CartUI({ cart, data, buttonStyle }) {
 
   const startNew = () => {
     cart.clear();
+    setCouponCode('');
+    setCouponInput('');
     setNotes('');
     setChangeFor('');
     setSent(false);
@@ -258,9 +279,44 @@ export default function CartUI({ cart, data, buttonStyle }) {
                   className="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-gray-300 resize-none"
                 />
 
+                {/* Peça também */}
+                {cart.lines.length > 0 && suggestions.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold">Peça também</p>
+                    {suggestions.map(p => (
+                      <div key={p._id} className="flex items-center gap-3 border rounded-xl p-2">
+                        {p.image ? <img src={p.image} alt="" className="w-12 h-12 rounded-lg object-cover" /> : <div className="w-12 h-12 rounded-lg bg-gray-100" />}
+                        <div className="flex-grow min-w-0">
+                          <p className="text-sm font-medium truncate">{p.name}</p>
+                          <p className="text-sm text-gray-600">{centsToBRL(p.price)}</p>
+                        </div>
+                        <button type="button" onClick={() => cart.add(p._id)} className="px-3 py-1.5 rounded-full text-sm font-semibold" style={buttonStyle} aria-label={`Adicionar ${p.name} sugerido`}>+ Adicionar</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Cupom */}
+                {(settings.coupons || []).some(c => c.active !== false) && (
+                  couponCode && discount > 0 ? (
+                    <div className="flex items-center justify-between text-sm bg-green-50 border border-green-200 text-green-800 rounded-xl px-3 py-2">
+                      <span>Cupom <strong>{couponCode}</strong> aplicado: -{centsToBRL(discount)}</span>
+                      <button type="button" onClick={() => { setCouponCode(''); setCouponInput(''); }} className="underline">remover</button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input value={couponInput} onChange={(e) => setCouponInput(e.target.value)} placeholder="Cupom de desconto" maxLength={20}
+                        className="flex-grow px-4 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-gray-300 uppercase" />
+                      <button type="button" onClick={applyTyped} className="px-4 py-2 rounded-xl border font-medium text-gray-700">Aplicar</button>
+                    </div>
+                  )
+                )}
+                {couponCode && couponResult?.error && <p className="text-xs text-amber-700">{couponResult.error}</p>}
+
                 {/* Totais */}
                 <div className="space-y-1 text-sm border-t pt-4">
                   <div className="flex justify-between"><span className="text-gray-600">Subtotal</span><span>{centsToBRL(cart.subtotal)}</span></div>
+                  {discount > 0 && <div className="flex justify-between text-green-700"><span>Cupom {couponCode}</span><span>-{centsToBRL(discount)}</span></div>}
                   {effectiveMode === 'delivery' && (
                     <div className="flex justify-between"><span className="text-gray-600">Entrega</span><span>{fee > 0 ? centsToBRL(fee) : 'Grátis'}</span></div>
                   )}

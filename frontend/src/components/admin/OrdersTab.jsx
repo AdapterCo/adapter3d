@@ -1,5 +1,7 @@
-import { ShoppingBag } from 'lucide-react';
+import { useState } from 'react';
+import { ShoppingBag, Ticket, Trash2 } from 'lucide-react';
 import { centsToInput, inputToCents } from './utils';
+import { couponLabel, normalizeCode } from '../../utils/coupons';
 
 const DEFAULTS = { enabled: true, pickup: true, delivery: true, deliveryFee: 0, minOrder: 0, paymentMethods: ['pix', 'card', 'cash'] };
 const PAYMENTS = [['pix', 'Pix'], ['card', 'Cartão'], ['cash', 'Dinheiro']];
@@ -90,7 +92,59 @@ export default function OrdersTab({ data, setData }) {
         </div>
       </div>
 
+      <CouponsEditor coupons={s.coupons || []} onChange={(coupons) => update({ coupons })} />
+
       <p className="text-xs text-gray-500">Clique em <strong>Salvar</strong> no topo para aplicar.</p>
+    </div>
+  );
+}
+
+// Cupons de desconto: o cliente digita o código no carrinho.
+function CouponsEditor({ coupons, onChange }) {
+  const [form, setForm] = useState({ code: '', type: 'percent', value: '', minOrder: '' });
+  const [error, setError] = useState('');
+
+  const add = () => {
+    setError('');
+    const code = normalizeCode(form.code);
+    if (!/^[A-Z0-9_-]{3,20}$/.test(code)) return setError('Código com 3 a 20 letras, números, - ou _.');
+    if (coupons.some(c => normalizeCode(c.code) === code)) return setError('Já existe um cupom com esse código.');
+    const value = form.type === 'percent' ? Math.round(Number(form.value)) : inputToCents(form.value);
+    if (!value || value <= 0 || (form.type === 'percent' && value > 100)) return setError(form.type === 'percent' ? 'Informe um desconto de 1 a 100%.' : 'Informe o valor do desconto.');
+    onChange([...coupons, { code, type: form.type, value, minOrder: inputToCents(form.minOrder), active: true }]);
+    setForm({ code: '', type: form.type, value: '', minOrder: '' });
+  };
+  const toggle = (i) => onChange(coupons.map((c, j) => (j === i ? { ...c, active: c.active === false } : c)));
+  const remove = (i) => onChange(coupons.filter((_, j) => j !== i));
+  const input = 'px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500';
+
+  return (
+    <div className="border-t pt-5 space-y-3">
+      <h4 className="font-semibold flex items-center gap-2"><Ticket className="w-4 h-4" /> Cupons de desconto</h4>
+      <p className="text-sm text-gray-500">Crie códigos para divulgar (ex.: PROMO10). O desconto vale sobre os produtos e aparece no pedido que chega no seu WhatsApp.</p>
+      {coupons.length > 0 && (
+        <ul className="divide-y border rounded-lg bg-white">
+          {coupons.map((c, i) => (
+            <li key={c.code} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
+              <code className="font-semibold">{c.code}</code>
+              <span className="text-gray-600">{couponLabel(c)}{c.minOrder > 0 ? ` · pedidos a partir de R$ ${centsToInput(c.minOrder)}` : ''}</span>
+              <label className="ml-auto flex items-center gap-1 text-xs"><input type="checkbox" checked={c.active !== false} onChange={() => toggle(i)} /> ativo</label>
+              <button type="button" onClick={() => remove(i)} className="p-1 text-gray-400 hover:text-red-500" aria-label={`Remover cupom ${c.code}`}><Trash2 className="w-4 h-4" /></button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex flex-wrap items-end gap-2">
+        <input className={`${input} w-32 uppercase`} placeholder="CÓDIGO" value={form.code} maxLength={20} onChange={(e) => setForm(f => ({ ...f, code: e.target.value }))} />
+        <select className={input} value={form.type} onChange={(e) => setForm(f => ({ ...f, type: e.target.value, value: '' }))}>
+          <option value="percent">% de desconto</option>
+          <option value="fixed">R$ de desconto</option>
+        </select>
+        <input className={`${input} w-24`} inputMode="numeric" placeholder={form.type === 'percent' ? '10' : '5,00'} value={form.type === 'fixed' && form.value ? centsToInput(inputToCents(form.value)) : form.value} onChange={(e) => setForm(f => ({ ...f, value: e.target.value }))} />
+        <input className={`${input} w-40`} inputMode="numeric" placeholder="Pedido mín. (opcional)" value={form.minOrder ? centsToInput(inputToCents(form.minOrder)) : ''} onChange={(e) => setForm(f => ({ ...f, minOrder: e.target.value }))} />
+        <button type="button" onClick={add} className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm">Adicionar cupom</button>
+      </div>
+      {error && <p className="text-sm text-red-600">{error}</p>}
     </div>
   );
 }

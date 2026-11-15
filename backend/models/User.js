@@ -21,7 +21,8 @@ const productSchema = new mongoose.Schema({
   image: { type: String, default: '' },
   categoryId: { type: mongoose.Schema.Types.ObjectId, default: null },
   order: { type: Number, default: 0 },
-  isVisible: { type: Boolean, default: true }
+  isVisible: { type: Boolean, default: true },
+  upsell: { type: Boolean, default: false } // sugerido no carrinho ("Peça também")
 }, { timestamps: true });
 
 const petSchema = new mongoose.Schema({
@@ -176,7 +177,20 @@ const userSchema = new mongoose.Schema({
     // Pedido na mesa: QR/tag de cada mesa abre o cardápio com ?mesa=N e o
     // pedido chega com "Mesa N" (consumo no local, sem endereço nem taxa).
     tableService: { type: Boolean, default: false },
-    tables: { type: Number, default: 10, min: 1, max: 200 }
+    tables: { type: Number, default: 10, min: 1, max: 200 },
+    // Cupons de desconto digitados no carrinho. value: % (1-100) ou centavos.
+    coupons: {
+      type: [{
+        _id: false,
+        code: { type: String, trim: true, uppercase: true, maxlength: 20, match: /^[A-Z0-9_-]{3,20}$/ },
+        type: { type: String, enum: ['percent', 'fixed'], default: 'percent' },
+        value: { type: Number, min: 0, max: 10000000 },
+        minOrder: { type: Number, default: 0, min: 0 },
+        active: { type: Boolean, default: true }
+      }],
+      default: [],
+      validate: { validator: (a) => a.length <= 30, message: 'Máximo de 30 cupons.' }
+    }
   },
 
   // Horário de funcionamento (cardápio/vitrine). Fora do horário o perfil

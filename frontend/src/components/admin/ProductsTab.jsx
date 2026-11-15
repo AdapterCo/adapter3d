@@ -1,4 +1,4 @@
-import { Trash2, ArrowUp, ArrowDown, ImageIcon, Eye, EyeOff } from 'lucide-react';
+import { Trash2, ArrowUp, ArrowDown, ImageIcon, Eye, EyeOff, Sparkles } from 'lucide-react';
 import api from '../../services/api';
 import { centsToInput, inputToCents, newObjectId } from './utils';
 
@@ -135,6 +135,17 @@ export default function ProductsTab({ data, setData }) {
                   >
                     {p.isVisible !== false ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                     <span>{p.isVisible !== false ? 'Visível' : 'Oculto'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateProduct(index, 'upsell', !p.upsell)}
+                    className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
+                      p.upsell ? 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                    }`}
+                    title="Aparece como sugestão no carrinho (Peça também)"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>{p.upsell ? 'Sugerido' : 'Sugerir'}</span>
                   </button>
                 </div>
               </div>
