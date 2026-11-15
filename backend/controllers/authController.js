@@ -79,6 +79,9 @@ exports.register = async (req, res) => {
     if (!id || !email || !password) {
       return res.status(400).json({ message: 'Todos os campos são obrigatórios.' });
     }
+    if (req.body?.acceptTerms !== true) {
+      return res.status(400).json({ message: 'É preciso aceitar os Termos de Uso e a Política de Privacidade.' });
+    }
     if (!isValidEmail(email)) {
       return res.status(400).json({ message: 'Email inválido.' });
     }
@@ -124,7 +127,7 @@ exports.register = async (req, res) => {
       throw { _userError: 'Este complemento (URL) já está em uso.' };
     }
 
-    const userPayload = { id, email, password, slug: resolvedSlug, profileType: resolvedType };
+    const userPayload = { id, email, password, slug: resolvedSlug, profileType: resolvedType, termsAcceptedAt: new Date() };
     if (resolvedType === 'pet') {
       // Pet profile: name é o nome do pet, pet.* contém o resto
       if (pet && typeof pet === 'object') userPayload.pet = pet;

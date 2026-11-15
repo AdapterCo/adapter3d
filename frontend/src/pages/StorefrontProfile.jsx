@@ -162,7 +162,7 @@ export default function StorefrontProfile({ data }) {
         )}
 
         <div className="mt-12 text-center opacity-60 text-sm font-medium" style={textStyle}>
-          Criado com Adapter Cards
+          Criado com Adapter Cards · <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="underline">Privacidade</a>
         </div>
       </div>
 

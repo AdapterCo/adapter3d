@@ -62,6 +62,9 @@ const userSchema = new mongoose.Schema({
   // e-mail. select:false = nunca sai em consultas sem pedir explicitamente.
   resetPasswordHash: { type: String, default: null, select: false },
   resetPasswordExpires: { type: Date, default: null, select: false },
+  // Data em que aceitou os Termos de Uso e a Política de Privacidade (LGPD).
+  // null em contas criadas antes do aceite obrigatório.
+  termsAcceptedAt: { type: Date, default: null },
   slug: { type: String, required: true, unique: true }, // The custom URL
   // Slugs antigos deste perfil: links/QRs impressos com o endereço antigo
   // continuam abrindo o perfil. Não podem ser usados por outro usuário.

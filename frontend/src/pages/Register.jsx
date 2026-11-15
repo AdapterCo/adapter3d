@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { UserPlus, ArrowLeft } from 'lucide-react';
 import api from '../services/api';
+import TermsCheckbox from '../components/TermsCheckbox';
 import RegisterPet from './RegisterPet';
 
 export default function Register() {
@@ -62,7 +63,8 @@ export default function Register() {
     try {
       const response = await api.post('/auth/register', {
         ...formData,
-        profileType: profileType || 'business'
+        profileType: profileType || 'business',
+        acceptTerms: true // o formulário só envia com o checkbox marcado
       });
       // Save token
       localStorage.setItem('token', response.data.token);
@@ -158,6 +160,8 @@ export default function Register() {
               Apenas letras, números e traços. Não pode ser alterado depois facilmente.
             </p>
           </div>
+
+          <TermsCheckbox />
 
           <button
             type="submit"

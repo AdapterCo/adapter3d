@@ -6,6 +6,8 @@ import Register from './pages/Register';
 import TagRedirect from './pages/TagRedirect';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
 
 function App() {
   return (
@@ -17,6 +19,8 @@ function App() {
         <Route path="/tag/:id" element={<TagRedirect />} />
         <Route path="/esqueci-senha" element={<ForgotPassword />} />
         <Route path="/redefinir-senha" element={<ResetPassword />} />
+        <Route path="/termos" element={<Terms />} />
+        <Route path="/privacidade" element={<Privacy />} />
         <Route path="/:slug" element={<PublicCard />} />
       </Routes>
     </Router>

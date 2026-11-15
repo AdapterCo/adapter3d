@@ -134,7 +134,7 @@ export default function MenuProfile({ data }) {
         )}
 
         <div className={`mt-12 text-center opacity-60 text-sm font-medium ${cart.count > 0 ? 'pb-24' : ''}`} style={textStyle}>
-          Criado com Adapter Cards
+          Criado com Adapter Cards · <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="underline">Privacidade</a>
         </div>
       </div>
       <CartUI cart={cart} data={data} buttonStyle={buttonStyle} />

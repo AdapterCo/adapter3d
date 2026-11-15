@@ -53,6 +53,8 @@ function classify(href) {
   if (href.startsWith('tel:')) return 'phone';
   let url;
   try { url = new URL(href, window.location.href); } catch { return null; }
+  // Links internos (ex.: Política de Privacidade no rodapé) não contam como clique.
+  if (url.origin === window.location.origin) return null;
   if (url.hostname === 'search.google.com' && url.pathname.includes('writereview')) return 'review';
   if (/google\.[a-z.]+$/.test(url.hostname) && url.pathname.startsWith('/maps')) return 'directions_maps';
   for (const [re, target] of HOST_TARGETS) if (re.test(url.hostname)) return target;

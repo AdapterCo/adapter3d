@@ -1,7 +1,7 @@
 // Regras de validação compartilhadas entre cadastro (authController) e
 // atualização de perfil (userController).
 
-const RESERVED_SLUGS = new Set(['admin', 'register', 'tag', 'api', 'login', 'uploads', 'auth', 'esqueci-senha', 'redefinir-senha']);
+const RESERVED_SLUGS = new Set(['admin', 'register', 'tag', 'api', 'login', 'uploads', 'auth', 'esqueci-senha', 'redefinir-senha', 'termos', 'privacidade']);
 const SLUG_REGEX = /^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;

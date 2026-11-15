@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PawPrint, ArrowLeft } from 'lucide-react';
 import api from '../services/api';
+import TermsCheckbox from '../components/TermsCheckbox';
 
 const SPECIES = [
   { value: 'dog', label: 'Cachorro' },
@@ -54,7 +55,8 @@ export default function RegisterPet({ tagId }) {
         password: form.password,
         slug: tagId,
         profileType: 'pet',
-        pet: form.pet
+        pet: form.pet,
+        acceptTerms: true // o formulário só envia com o checkbox marcado
       };
       const res = await api.post('/auth/register', payload);
       localStorage.setItem('token', res.data.token);
@@ -199,6 +201,8 @@ export default function RegisterPet({ tagId }) {
               </p>
             </div>
           </section>
+
+          <TermsCheckbox />
 
           <button
             type="submit"

@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const storage = require('../services/storage');
 const { normalizeSlug, isValidSlug } = require('../utils/validation');
+const { optimizeImage } = require('../services/imageProcessor');
 
 // Get User by Slug (Public Card View)
 exports.getUserBySlug = async (req, res) => {
@@ -185,10 +186,19 @@ exports.uploadImage = async (req, res) => {
       return res.status(400).json({ message: 'Formato não suportado. Envie JPG, PNG, WebP ou GIF.' });
     }
 
+    // Reduz, converte para WebP e remove metadados (EXIF/GPS).
+    let optimized;
+    try {
+      optimized = await optimizeImage(req.file.buffer, detected);
+    } catch (err) {
+      console.warn('uploadImage: imagem inválida ou corrompida:', err.message);
+      return res.status(400).json({ message: 'Não foi possível processar esta imagem. Tente outra foto.' });
+    }
+
     const { url } = await storage.uploadBuffer(
-      req.file.buffer,
-      `upload${detected.ext}`,
-      detected.mime
+      optimized.buffer,
+      `upload${optimized.ext}`,
+      optimized.mime
     );
 
     res.json({ url });

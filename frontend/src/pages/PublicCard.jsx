@@ -258,7 +258,7 @@ export default function PublicCard({ previewData }) {
         
         {/* Footer */}
         <div className="mt-12 opacity-60 text-sm font-medium" style={textStyle}>
-          Criado com Adapter Cards
+          Criado com Adapter Cards · <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="underline">Privacidade</a>
         </div>
       </div>
     </div>

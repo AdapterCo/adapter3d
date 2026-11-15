@@ -176,6 +176,10 @@ export default function Login() {
             </form>
           )}
         </div>
+        <div className="px-8 pb-6 text-center text-xs text-gray-400 space-x-3">
+          <Link to="/termos" className="hover:underline">Termos de Uso</Link>
+          <Link to="/privacidade" className="hover:underline">Privacidade</Link>
+        </div>
       </div>
     </div>
   );
