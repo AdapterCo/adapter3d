@@ -6,6 +6,7 @@ const authController = require('../controllers/authController');
 const userController = require('../controllers/userController');
 const adminController = require('../controllers/adminController');
 const googleReviewController = require('../controllers/googleReviewController');
+const statsController = require('../controllers/statsController');
 const auth = require('../middleware/authMiddleware');
 const adminAuth = require('../middleware/adminAuth');
 const rateLimit = require('../middleware/rateLimit');
@@ -60,6 +61,14 @@ router.post('/google-review', auth, rateLimit({
   message: 'Muitas tentativas de gerar o link. Aguarde alguns minutos.'
 }), googleReviewController.resolve);
 router.delete('/google-review', auth, googleReviewController.remove);
+
+// Estatísticas. /track é público (perfis enviam via sendBeacon como text/plain,
+// que não exige preflight de CORS); /stats exige login do lojista.
+router.post('/track', rateLimit({
+  windowMs: 60 * 1000, max: 120,
+  message: 'Muitas requisições.'
+}), express.text({ type: 'text/plain', limit: '16kb' }), statsController.track);
+router.get('/stats', auth, statsController.getStats);
 
 // Admin Routes (protegidas por X-Admin-Key header — sem JWT)
 router.post('/admin/tags', adminAuth, adminController.createTags);

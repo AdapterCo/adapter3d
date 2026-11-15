@@ -95,7 +95,7 @@ export default function PetProfile({ data }) {
             <p className="mt-5 text-white/80 text-sm">Tutor: <strong>{owner.name}</strong></p>
           )}
 
-          <button onClick={handleShare} className="mt-6 text-white/80 underline text-sm">
+          <button data-track="share" onClick={handleShare} className="mt-6 text-white/80 underline text-sm">
             Compartilhar este alerta
           </button>
         </div>
@@ -121,7 +121,7 @@ export default function PetProfile({ data }) {
       <div className="max-w-md w-full px-6 py-12 flex flex-col items-center">
 
         <div className="flex justify-end w-full mb-6 relative z-10">
-          <button onClick={handleShare}
+          <button data-track="share" onClick={handleShare}
                   className="p-2 rounded-full bg-black/10 backdrop-blur-sm hover:bg-black/20 transition-all"
                   style={textStyle}>
             <Share2 className="w-5 h-5" />

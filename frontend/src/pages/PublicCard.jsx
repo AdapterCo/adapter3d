@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useParams, useLocation } from 'react-router-dom';
+import { track, trackClick } from '../services/track';
 import { Share2, Link as LinkIcon, Phone, MessageCircle } from 'lucide-react';
 import api from '../services/api';
 import { buildWhatsappLink } from '../components/admin/utils';
@@ -50,13 +51,25 @@ const PixIcon = ({ className }) => (
 
 export default function PublicCard({ previewData }) {
   const { slug } = useParams();
-  const [data, setData] = useState(previewData || null);
+  // _preview: o painel mostra o perfil sem contar visitas/cliques.
+  const [data, setData] = useState(previewData ? { ...previewData, _preview: true } : null);
   const [loading, setLoading] = useState(!previewData);
   const [copiedPix, setCopiedPix] = useState(false);
+  const fromTag = useLocation().state?.fromTag === true;
+  const visitSent = useRef(false);
+
+  // Uma visita por carregamento da página (o ref evita duplicar no StrictMode).
+  useEffect(() => {
+    if (!data || data._preview || visitSent.current) return;
+    visitSent.current = true;
+    track(data, 'visit', { source: fromTag ? 'tag' : 'link' });
+  }, [data, fromTag]);
+
+  const onClickCapture = (e) => trackClick(e, data);
 
   useEffect(() => {
     if (previewData) {
-      setData(previewData);
+      setData({ ...previewData, _preview: true });
     } else {
       const fetchData = async () => {
         try {
@@ -83,13 +96,13 @@ export default function PublicCard({ previewData }) {
 
   // Variantes por profileType — cada uma tem layout próprio.
   if (data.profileType === 'pet') {
-    return <PetProfile data={data} />;
+    return <div className="contents" onClickCapture={onClickCapture}><PetProfile data={data} /></div>;
   }
   if (data.profileType === 'menu') {
-    return <MenuProfile data={data} />;
+    return <div className="contents" onClickCapture={onClickCapture}><MenuProfile data={data} /></div>;
   }
   if (data.profileType === 'storefront') {
-    return <StorefrontProfile data={data} />;
+    return <div className="contents" onClickCapture={onClickCapture}><StorefrontProfile data={data} /></div>;
   }
 
   const { theme } = data;
@@ -122,13 +135,13 @@ export default function PublicCard({ previewData }) {
   };
 
   return (
-    <div className="min-h-screen relative flex justify-center w-full" style={backgroundStyle}>
+    <div className="min-h-screen relative flex justify-center w-full" style={backgroundStyle} onClickCapture={onClickCapture}>
       <div className="max-w-md w-full px-6 py-12 flex flex-col items-center">
 
         {/* Header */}
         <div className="flex justify-end w-full mb-6 relative z-10">
           <button
-            onClick={handleShare}
+            data-track="share" onClick={handleShare}
             className="p-2 rounded-full bg-black/10 backdrop-blur-sm hover:bg-black/20 transition-all"
             style={textStyle}
           >
@@ -173,7 +186,7 @@ export default function PublicCard({ previewData }) {
           <DirectionsButton data={data} buttonStyle={buttonStyle} />
 
           {data.pix && (
-            <button onClick={copyPix}
+            <button onClick={copyPix} data-track="pix"
                className="w-full flex items-center justify-center p-4 rounded-xl shadow-sm hover:scale-[1.02] transition-all relative overflow-hidden"
                style={buttonStyle}>
               <PixIcon className="w-5 h-5 mr-3" />

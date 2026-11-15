@@ -99,7 +99,7 @@ export default function DirectionsButton({ data, buttonStyle, className = '' }) 
               <a href={links.uber} target="_blank" rel="noopener noreferrer" className={optionClass}>
                 <span className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center text-xs font-bold">Uber</span> Uber
               </a>
-              <button type="button" onClick={() => open99(links.app99)} className={optionClass}>
+              <button type="button" data-track="directions_99" onClick={() => open99(links.app99)} className={optionClass}>
                 <span className="w-8 h-8 rounded-full bg-yellow-300 text-black flex items-center justify-center text-sm font-bold">99</span> 99
               </button>
             </div>

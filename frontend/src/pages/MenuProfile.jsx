@@ -57,7 +57,7 @@ export default function MenuProfile({ data }) {
         {/* Header */}
         <div className="flex justify-end mb-4">
           <button
-            onClick={handleShare}
+            data-track="share" onClick={handleShare}
             className="p-2 rounded-full bg-black/10 backdrop-blur-sm hover:bg-black/20 transition-all"
             style={textStyle}
           ><Share2 className="w-5 h-5" /></button>

@@ -13,7 +13,8 @@ export default function TagRedirect() {
         // We'll create a new endpoint or use an existing one to find slug by tag ID
         const response = await api.get(`/users/tag/${id}`);
         if (response.data && response.data.slug) {
-          navigate(`/${response.data.slug}`, { replace: true });
+          // fromTag: a visita conta como leitura da tag (NFC/QR) nas estatísticas.
+          navigate(`/${response.data.slug}`, { replace: true, state: { fromTag: true } });
         } else {
           setError(true);
         }

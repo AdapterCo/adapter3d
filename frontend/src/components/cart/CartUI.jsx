@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ShoppingBag, X, Minus, Plus, Trash2, MessageCircle, CheckCircle2 } from 'lucide-react';
 import { centsToBRL, inputToCents, centsToInput, buildWhatsappLink } from '../admin/utils';
 import { buildOrderMessage, PAYMENT_LABEL } from './orderMessage';
+import { track } from '../../services/track';
 
 const CUSTOMER_KEY = 'cart:customer';
 
@@ -78,6 +79,10 @@ export default function CartUI({ cart, data, buttonStyle }) {
       notes
     });
     saveCustomer({ name: name.trim(), address: address.trim() });
+    track(data, 'order', {
+      value: total,
+      items: cart.lines.map(l => ({ productId: String(l.productId), name: l.product.name, qty: l.qty, price: l.product.price || 0 }))
+    });
     window.open(buildWhatsappLink(data.whatsapp, message), '_blank', 'noopener');
     setSent(true);
   };

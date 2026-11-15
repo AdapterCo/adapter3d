@@ -5,6 +5,7 @@ import GoogleReviewButton from '../components/GoogleReviewButton';
 import DirectionsButton from '../components/DirectionsButton';
 import CartUI, { QtyControl } from '../components/cart/CartUI';
 import useCart from '../hooks/useCart';
+import { track } from '../services/track';
 
 export default function StorefrontProfile({ data }) {
   const { theme } = data;
@@ -44,6 +45,7 @@ export default function StorefrontProfile({ data }) {
   const openProduct = (p) => {
     setModalQty(1);
     setSelectedId(String(p._id));
+    track(data, 'product_view', { target: String(p._id) });
   };
 
   const addSelectedToCart = () => {
@@ -72,7 +74,7 @@ export default function StorefrontProfile({ data }) {
         {/* Header */}
         <div className="flex justify-end mb-4">
           <button
-            onClick={handleShare}
+            data-track="share" onClick={handleShare}
             className="p-2 rounded-full bg-black/10 backdrop-blur-sm hover:bg-black/20 transition-all"
             style={textStyle}
           ><Share2 className="w-5 h-5" /></button>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { track } from '../services/track';
 
 const MAX_QTY = 99;
 
@@ -49,6 +50,8 @@ export default function useCart(data) {
   const setQty = (productId, qty) => {
     const id = String(productId);
     const q = Math.max(0, Math.min(MAX_QTY, Math.floor(qty)));
+    const delta = q - qtyOf(id);
+    if (delta > 0) track(data, 'add_to_cart', { target: id, value: delta });
     setItems(prev => {
       const rest = prev.filter(i => String(i.productId) !== id);
       if (q === 0) return rest;

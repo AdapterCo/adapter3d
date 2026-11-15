@@ -17,12 +17,13 @@ import ProductsTab from '../components/admin/ProductsTab';
 import ContactTab from '../components/admin/ContactTab';
 import ReviewTab from '../components/admin/ReviewTab';
 import OrdersTab from '../components/admin/OrdersTab';
+import StatsTab from '../components/admin/StatsTab';
 
 const TABS_BY_TYPE = {
-  business: ['basic', 'links', 'review', 'theme'],
-  pet: ['basic', 'pet', 'owner', 'health', 'lost', 'theme'],
-  menu: ['basic', 'categories', 'products', 'orders', 'contact', 'review', 'theme'],
-  storefront: ['basic', 'categories', 'products', 'orders', 'contact', 'review', 'theme']
+  business: ['basic', 'stats', 'links', 'review', 'theme'],
+  pet: ['basic', 'stats', 'pet', 'owner', 'health', 'lost', 'theme'],
+  menu: ['basic', 'stats', 'categories', 'products', 'orders', 'contact', 'review', 'theme'],
+  storefront: ['basic', 'stats', 'categories', 'products', 'orders', 'contact', 'review', 'theme']
 };
 
 const TAB_LABEL = {
@@ -37,7 +38,8 @@ const TAB_LABEL = {
   products: 'Produtos',
   contact: 'Contato',
   review: '📍 Google Maps',
-  orders: '🛒 Pedidos'
+  orders: '🛒 Pedidos',
+  stats: '📊 Estatísticas'
 };
 
 const TAB_COMPONENT = {
@@ -52,7 +54,8 @@ const TAB_COMPONENT = {
   products: ProductsTab,
   contact: ContactTab,
   review: ReviewTab,
-  orders: OrdersTab
+  orders: OrdersTab,
+  stats: StatsTab
 };
 
 export default function Admin() {
