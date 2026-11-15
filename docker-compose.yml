@@ -47,7 +47,11 @@ services:
       # E-mail (recuperação de senha). Sem SMTP_HOST os e-mails só vão para o log.
       - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_SECURE=${SMTP_SECURE:-}
       - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - EMAIL_FROM=${EMAIL_FROM:-}
+      # Nomes antigos, ainda aceitos
       - SMTP_PASS=${SMTP_PASS:-}
       - SMTP_FROM=${SMTP_FROM:-}
       # Assinaturas (Mercado Pago). Sem MP_ACCESS_TOKEN, a página /assinar fica indisponível.
