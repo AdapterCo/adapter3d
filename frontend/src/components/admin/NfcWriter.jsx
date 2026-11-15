@@ -61,6 +61,9 @@ export default function NfcWriter({ url, onClose }) {
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
+  // Erro bruto do Chrome (nome + mensagem), exibido em "Detalhes técnicos".
+  const [tech, setTech] = useState('');
+  const [lockAttempts, setLockAttempts] = useState(0);
   const abortRef = useRef(null);
   const timerRef = useRef(null);
 
@@ -74,8 +77,11 @@ export default function NfcWriter({ url, onClose }) {
     return ctrl;
   };
 
+  const remember = (err) => setTech(`${err?.name || 'Erro'}: ${err?.message || '(sem mensagem)'}`);
+
   const fail = (err) => {
     if (err?.name === 'AbortError') return;
+    remember(err);
     setError(errorMessage(err));
     setStatus('error');
   };
@@ -108,6 +114,7 @@ export default function NfcWriter({ url, onClose }) {
   const write = async () => {
     setError('');
     setNote('');
+    setTech('');
     const ctrl = newSignal();
     setStatus('writing');
     try {
@@ -124,6 +131,7 @@ export default function NfcWriter({ url, onClose }) {
     if (!window.confirm('Bloquear a tag é definitivo: ela nunca mais poderá ser regravada. Continuar?')) return;
     setError('');
     setNote('');
+    setTech('');
     const ctrl = newSignal();
     setStatus('locking');
     try {
@@ -131,8 +139,17 @@ export default function NfcWriter({ url, onClose }) {
       setStatus('locked');
     } catch (err) {
       if (err?.name === 'AbortError') return;
-      if (isTransient(err)) setStatus('lockUnsure');
-      else fail(err);
+      setLockAttempts(n => n + 1);
+      remember(err);
+      if (isTransient(err)) {
+        setStatus('lockUnsure');
+      } else {
+        // Ex.: NotSupportedError = o chip/celular não aceita bloqueio pelo navegador.
+        setNote(err?.name === 'NotSupportedError'
+          ? 'Este chip ou celular não aceita bloqueio pelo navegador. Use a opção pelo app NFC Tools abaixo.'
+          : errorMessage(err));
+        setStatus('written');
+      }
     }
   };
 
@@ -144,10 +161,13 @@ export default function NfcWriter({ url, onClose }) {
     setStatus('checkingLock');
     try {
       await new window.NDEFReader().write({ records: [{ recordType: 'url', data: url }] }, { signal: ctrl.signal, overwrite: true });
-      setNote('A tag ainda não está bloqueada. Toque em "Bloquear esta tag" e tente de novo.');
+      setNote(lockAttempts >= 2
+        ? 'A tag ainda não está bloqueada. O bloqueio pelo navegador não está funcionando com este chip/celular: use o app NFC Tools (passo a passo abaixo).'
+        : 'A tag ainda não está bloqueada. Toque em "Bloquear esta tag" e tente de novo.');
       setStatus('written');
     } catch (err) {
       if (err?.name === 'AbortError') return;
+      remember(err);
       if (isTransient(err)) {
         setNote('Não deu para conferir. Encoste a tag de novo e segure por 2 segundos.');
         setStatus('lockUnsure');
@@ -167,6 +187,29 @@ export default function NfcWriter({ url, onClose }) {
     navigator.clipboard.writeText(url);
     alert('Link copiado!');
   };
+
+  const techDetails = () => tech && (
+    <details className="text-xs text-gray-500">
+      <summary className="cursor-pointer">Detalhes técnicos</summary>
+      <code className="block mt-1 p-2 bg-gray-100 rounded break-all">{tech}</code>
+      <p className="mt-1">Se precisar de suporte, envie este texto.</p>
+    </details>
+  );
+
+  // Alternativa quando o bloqueio pelo navegador falha: o app NFC Tools
+  // (Android e iPhone) tem a opção de bloquear a tag.
+  const nfcToolsLock = () => (
+    <div className="border rounded-lg p-3 space-y-2 text-sm text-gray-700">
+      <p className="font-medium flex items-center gap-1"><Lock className="w-4 h-4" /> Bloquear pelo app NFC Tools</p>
+      <ol className="list-decimal list-inside space-y-1">
+        <li>Instale o <strong>NFC Tools</strong> (grátis na Play Store ou App Store).</li>
+        <li>Abra a aba <strong>Outros</strong> (Other) e toque em <strong>Bloquear tag</strong> (Lock tag).</li>
+        <li>Confirme e encoste a tag no celular.</li>
+        <li>Na aba <strong>Ler</strong>, confira se aparece <strong>Gravável: Não</strong>.</li>
+      </ol>
+      <p className="text-xs text-gray-500">Se o NFC Tools também não conseguir bloquear, este modelo de chip não aceita bloqueio: use tags NTAG213, 215 ou 216 originais.</p>
+    </div>
+  );
 
   const renderWebNfc = () => {
     switch (status) {
@@ -194,11 +237,13 @@ export default function NfcWriter({ url, onClose }) {
                   (recomendado para placas em mesas e balcões). <strong>Não pode ser desfeito.</strong>
                 </p>
                 <button onClick={lockTag} className="w-full flex items-center justify-center p-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium">
-                  <Lock className="w-4 h-4 mr-2" /> Bloquear esta tag
+                  <Lock className="w-4 h-4 mr-2" /> {lockAttempts > 0 ? 'Tentar bloquear de novo' : 'Bloquear esta tag'}
                 </button>
               </div>
             )}
-            <button onClick={() => { setNote(''); setStatus('idle'); }} className="w-full p-3 border rounded-xl font-medium text-gray-700">Gravar outra tag</button>
+            {lockAttempts > 0 && nfcToolsLock()}
+            {techDetails()}
+            <button onClick={() => { setNote(''); setTech(''); setLockAttempts(0); setStatus('idle'); }} className="w-full p-3 border rounded-xl font-medium text-gray-700">Gravar outra tag</button>
           </div>
         );
       case 'lockUnsure':
@@ -214,6 +259,8 @@ export default function NfcWriter({ url, onClose }) {
               <ShieldCheck className="w-4 h-4 mr-2" /> Verificar bloqueio
             </button>
             <button onClick={lockTag} className="w-full p-3 border rounded-xl font-medium text-gray-700">Tentar bloquear de novo</button>
+            {lockAttempts >= 2 && nfcToolsLock()}
+            {techDetails()}
           </div>
         );
       case 'locked':
@@ -222,7 +269,7 @@ export default function NfcWriter({ url, onClose }) {
             <ShieldCheck className="w-14 h-14 mx-auto text-green-600" />
             <p className="font-semibold">Tag gravada e bloqueada!</p>
             <p className="text-sm text-gray-600">Ninguém mais consegue alterar o endereço desta tag.</p>
-            <button onClick={() => setStatus('idle')} className="w-full p-3 border rounded-xl font-medium text-gray-700">Gravar outra tag</button>
+            <button onClick={() => { setTech(''); setLockAttempts(0); setStatus('idle'); }} className="w-full p-3 border rounded-xl font-medium text-gray-700">Gravar outra tag</button>
           </div>
         );
       default: // idle | error
@@ -234,7 +281,10 @@ export default function NfcWriter({ url, onClose }) {
               <li>Encoste a tag na parte de trás do celular e segure por 2 segundos.</li>
             </ol>
             {status === 'error' && (
-              <p className="text-sm text-red-600 flex gap-2"><AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" /> {error}</p>
+              <>
+                <p className="text-sm text-red-600 flex gap-2"><AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" /> {error}</p>
+                {techDetails()}
+              </>
             )}
             <button onClick={write} className="w-full flex items-center justify-center p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold">
               {status === 'error' ? <><RefreshCw className="w-5 h-5 mr-2" /> Tentar de novo</> : <><Nfc className="w-5 h-5 mr-2" /> Gravar</>}
