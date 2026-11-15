@@ -79,7 +79,7 @@ export default function PublicCard({ previewData }) {
           // Aberto por um slug antigo: troca a URL na barra para o slug atual
           // (sem recarregar), para o visitante compartilhar o endereço certo.
           if (response.data?.slug && response.data.slug !== slug) {
-            window.history.replaceState(window.history.state, '', `/${response.data.slug}`);
+            window.history.replaceState(window.history.state, '', `/${response.data.slug}${window.location.search}`);
           }
           setData(response.data);
         } catch (error) {

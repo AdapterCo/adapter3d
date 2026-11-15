@@ -137,22 +137,28 @@ exports.updateUser = async (req, res) => {
         delete updates.slug;
       } else {
         const newSlug = normalizeSlug(updates.slug);
-        if (!isValidSlug(newSlug)) {
-          return res.status(400).json({ message: 'Slug inválido ou reservado.' });
-        }
-        updates.slug = newSlug;
-        // Bloqueia também slugs antigos de outros perfis: links impressos com
-        // eles continuam apontando para o dono original.
-        const existingSlug = await User.findOne({
-          $or: [{ slug: newSlug }, { previousSlugs: newSlug }],
-          id: { $ne: id }
-        });
-        if (existingSlug) {
-          return res.status(400).json({ message: 'Este link (slug) já está em uso por outro usuário.' });
-        }
-        // Guarda o slug antigo (até 10) para os links antigos continuarem funcionando.
-        if (currentUser && currentUser.slug !== newSlug) {
-          updates.previousSlugs = [...(currentUser.previousSlugs || []).filter(s => s !== newSlug && s !== currentUser.slug), currentUser.slug].slice(-10);
+        if (currentUser && newSlug === normalizeSlug(currentUser.slug)) {
+          // O painel envia o perfil inteiro a cada "Salvar": link igual ao atual
+          // não é troca de link, então não há o que validar (nem regravar).
+          delete updates.slug;
+        } else {
+          if (!isValidSlug(newSlug)) {
+            return res.status(400).json({ message: 'Slug inválido ou reservado.' });
+          }
+          updates.slug = newSlug;
+          // Bloqueia também slugs antigos de outros perfis: links impressos com
+          // eles continuam apontando para o dono original.
+          const existingSlug = await User.findOne({
+            $or: [{ slug: newSlug }, { previousSlugs: newSlug }],
+            id: { $ne: id }
+          });
+          if (existingSlug) {
+            return res.status(400).json({ message: 'Este link (slug) já está em uso por outro usuário.' });
+          }
+          // Guarda o slug antigo (até 10) para os links antigos continuarem funcionando.
+          if (currentUser) {
+            updates.previousSlugs = [...(currentUser.previousSlugs || []).filter(s => s !== newSlug && s !== currentUser.slug), currentUser.slug].slice(-10);
+          }
         }
       }
     }

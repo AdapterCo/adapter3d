@@ -14,11 +14,12 @@ export default function TagRedirect() {
         const response = await api.get(`/users/tag/${id}`);
         if (response.data && response.data.slug) {
           // fromTag: a visita conta como leitura da tag (NFC/QR) nas estatísticas.
-          navigate(`/${response.data.slug}`, { replace: true, state: { fromTag: true } });
+          // ?mesa=N (tag/QR de mesa) segue junto para o cardápio.
+          navigate(`/${response.data.slug}${window.location.search}`, { replace: true, state: { fromTag: true } });
         } else {
           setError(true);
         }
-      } catch (err) {
+      } catch {
         // If not found, it might be unactivated. Redirect to login to activate.
         console.log("Tag not active or not found");
         navigate('/', { state: { tagId: id } }); // Optional: could prefill login tab if we adjust Login.jsx

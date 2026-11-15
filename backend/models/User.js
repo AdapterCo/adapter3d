@@ -168,7 +168,11 @@ const userSchema = new mongoose.Schema({
     // Dados do recebedor para o Pix copia e cola com valor (padrão BR Code).
     // A chave é o campo `pix` do perfil.
     pixName: { type: String, default: '', trim: true, maxlength: 25 },
-    pixCity: { type: String, default: '', trim: true, maxlength: 15 }
+    pixCity: { type: String, default: '', trim: true, maxlength: 15 },
+    // Pedido na mesa: QR/tag de cada mesa abre o cardápio com ?mesa=N e o
+    // pedido chega com "Mesa N" (consumo no local, sem endereço nem taxa).
+    tableService: { type: Boolean, default: false },
+    tables: { type: Number, default: 10, min: 1, max: 200 }
   },
 
   // Horário de funcionamento (cardápio/vitrine). Fora do horário o perfil

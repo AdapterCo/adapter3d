@@ -10,10 +10,12 @@ export const PAYMENT_LABEL = {
 // Asteriscos = negrito no WhatsApp.
 export function buildOrderMessage({
   orderRef, storeName, lines, subtotal, deliveryFee, total,
-  mode, customerName, customerAddress, payment, changeFor, notes
+  mode, table, customerName, customerAddress, payment, changeFor, notes
 }) {
   const out = [];
   out.push(`*Novo pedido${orderRef ? ` #${orderRef}` : ''}${storeName ? ` - ${storeName}` : ''}*`);
+  // Pedido na mesa: número da mesa em destaque logo no topo.
+  if (mode === 'table' && table) out.push(`*🍽️ MESA ${table}* · consumo no local`);
   out.push('');
   for (const l of lines) {
     out.push(`${l.qty}x ${l.product.name} - ${centsToBRL(l.qty * l.product.price)}`);
@@ -25,9 +27,11 @@ export function buildOrderMessage({
   }
   out.push(`*Total: ${centsToBRL(total)}*`);
   out.push('');
-  out.push(`*Cliente:* ${customerName}`);
+  if (customerName) out.push(`*Cliente:* ${customerName}`);
   if (mode === 'delivery') {
     out.push(`*Entregar em:* ${customerAddress}`);
+  } else if (mode === 'table') {
+    out.push(`*Mesa:* ${table}`);
   } else {
     out.push('*Retirada no local*');
   }

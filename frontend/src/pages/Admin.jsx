@@ -21,11 +21,12 @@ import OrdersTab from '../components/admin/OrdersTab';
 import StatsTab from '../components/admin/StatsTab';
 import PlanTab from '../components/admin/PlanTab';
 import HoursTab from '../components/admin/HoursTab';
+import TablesTab from '../components/admin/TablesTab';
 
 const TABS_BY_TYPE = {
   business: ['basic', 'stats', 'links', 'review', 'theme'],
   pet: ['basic', 'stats', 'pet', 'owner', 'health', 'lost', 'theme'],
-  menu: ['basic', 'stats', 'plan', 'categories', 'products', 'orders', 'hours', 'contact', 'review', 'theme'],
+  menu: ['basic', 'stats', 'plan', 'categories', 'products', 'orders', 'tables', 'hours', 'contact', 'review', 'theme'],
   storefront: ['basic', 'stats', 'plan', 'categories', 'products', 'orders', 'hours', 'contact', 'review', 'theme']
 };
 
@@ -44,7 +45,8 @@ const TAB_LABEL = {
   orders: '🛒 Pedidos',
   stats: '📊 Estatísticas',
   plan: '💳 Plano',
-  hours: '🕒 Horários'
+  hours: '🕒 Horários',
+  tables: '🍽️ Mesas'
 };
 
 const TAB_COMPONENT = {
@@ -62,7 +64,8 @@ const TAB_COMPONENT = {
   orders: OrdersTab,
   stats: StatsTab,
   plan: PlanTab,
-  hours: HoursTab
+  hours: HoursTab,
+  tables: TablesTab
 };
 
 export default function Admin() {

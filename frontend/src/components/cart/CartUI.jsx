@@ -56,7 +56,10 @@ export default function CartUI({ cart, data, buttonStyle }) {
 
   if (!cart.enabled) return null;
 
-  const effectiveMode = mode === 'delivery' && !allowDelivery ? 'pickup' : mode === 'pickup' && !allowPickup ? 'delivery' : mode;
+  // Cliente na mesa (QR/tag da mesa): consumo no local, sem entrega nem endereço.
+  const tableMode = Boolean(cart.table);
+  const effectiveMode = tableMode ? 'table'
+    : mode === 'delivery' && !allowDelivery ? 'pickup' : mode === 'pickup' && !allowPickup ? 'delivery' : mode;
   const fee = effectiveMode === 'delivery' ? deliveryFee : 0;
   const total = cart.subtotal + fee;
   const belowMin = minOrder > 0 && cart.subtotal < minOrder;
@@ -70,7 +73,7 @@ export default function CartUI({ cart, data, buttonStyle }) {
     if (closed) return setError(`Estamos fechados agora. ${hoursStatus.label}.`);
     if (cart.lines.length === 0) return setError('Seu carrinho está vazio.');
     if (belowMin) return setError(`Pedido mínimo de ${centsToBRL(minOrder)}.`);
-    if (!name.trim()) return setError('Informe seu nome.');
+    if (!tableMode && !name.trim()) return setError('Informe seu nome.');
     if (effectiveMode === 'delivery' && !address.trim()) return setError('Informe o endereço de entrega.');
     const change = payment === 'cash' ? inputToCents(changeFor) : 0;
     if (payment === 'cash' && change > 0 && change < total) return setError('O troco precisa ser para um valor maior que o total.');
@@ -90,6 +93,7 @@ export default function CartUI({ cart, data, buttonStyle }) {
       deliveryFee: fee,
       total,
       mode: effectiveMode,
+      table: cart.table,
       customerName: name.trim(),
       customerAddress: address.trim(),
       payment,
@@ -189,8 +193,13 @@ export default function CartUI({ cart, data, buttonStyle }) {
                   </ul>
                 )}
 
-                {/* Entrega ou retirada */}
-                {allowPickup && allowDelivery && (
+                {/* Mesa (consumo no local) ou entrega/retirada */}
+                {tableMode && (
+                  <div className="p-3 rounded-xl text-center font-semibold" style={buttonStyle}>
+                    🍽️ Mesa {cart.table} · consumo no local
+                  </div>
+                )}
+                {!tableMode && allowPickup && allowDelivery && (
                   <div className="grid grid-cols-2 gap-2">
                     {[['delivery', 'Entrega'], ['pickup', 'Retirar no local']].map(([value, label]) => (
                       <button
@@ -201,14 +210,14 @@ export default function CartUI({ cart, data, buttonStyle }) {
                     ))}
                   </div>
                 )}
-                {!(allowPickup && allowDelivery) && (
+                {!tableMode && !(allowPickup && allowDelivery) && (
                   <p className="text-sm text-gray-600">{effectiveMode === 'delivery' ? 'Somente entrega.' : 'Somente retirada no local.'}</p>
                 )}
 
                 <div className="space-y-3">
                   <input
                     value={name} onChange={(e) => setName(e.target.value)} maxLength={80}
-                    placeholder="Seu nome"
+                    placeholder={tableMode ? 'Seu nome (opcional)' : 'Seu nome'}
                     className="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-gray-300"
                   />
                   {effectiveMode === 'delivery' && (

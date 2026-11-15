@@ -13,6 +13,26 @@ function readStored(key) {
   }
 }
 
+// Número da mesa válido (1..mesas configuradas) ou null. Só com o recurso ligado.
+function readTable(key, settings) {
+  if (!settings.tableService) return null;
+  const max = Number(settings.tables) || 200;
+  const valid = (v) => {
+    const n = Number(v);
+    return Number.isInteger(n) && n >= 1 && n <= max ? n : null;
+  };
+  try {
+    const fromUrl = valid(new URLSearchParams(window.location.search).get('mesa'));
+    if (fromUrl) {
+      sessionStorage.setItem(key, String(fromUrl));
+      return fromUrl;
+    }
+    return valid(sessionStorage.getItem(key));
+  } catch {
+    return null;
+  }
+}
+
 // Carrinho do visitante, salvo no navegador por perfil (cart:<slug>).
 // Guarda só { productId, qty }: nome e preço vêm sempre do cardápio atual,
 // então mudanças de preço ou produtos ocultados refletem na hora.
@@ -28,6 +48,10 @@ export default function useCart(data) {
   const enabled = settings.enabled !== false
     && !!data.whatsapp
     && (settings.pickup !== false || settings.delivery !== false);
+
+  // Pedido na mesa: ?mesa=N (QR/tag da mesa). Fica guardado na sessão do
+  // navegador para não se perder se o cliente recarregar a página.
+  const [table] = useState(() => readTable(`mesa:${data.slug || 'preview'}`, settings));
 
   const productsById = useMemo(() => {
     const visibleCats = new Set((data.categories || []).filter(c => c.isVisible !== false).map(c => String(c._id)));
@@ -66,5 +90,5 @@ export default function useCart(data) {
   const add = (productId, n = 1) => setQty(productId, qtyOf(productId) + n);
   const clear = () => setItems([]);
 
-  return { enabled, settings, lines, count, subtotal, add, setQty, qtyOf, clear };
+  return { enabled, settings, table, lines, count, subtotal, add, setQty, qtyOf, clear };
 }
