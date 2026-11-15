@@ -16,6 +16,7 @@ const CLICK_LABEL = {
   youtube: 'YouTube',
   linkedin: 'LinkedIn',
   review: 'Avaliar no Google',
+  review_after_order: 'Avaliar no Google · após pedido',
   directions_maps: 'Como chegar · Google Maps',
   directions_waze: 'Como chegar · Waze',
   directions_uber: 'Como chegar · Uber',

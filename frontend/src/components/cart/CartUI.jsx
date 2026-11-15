@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShoppingBag, X, Minus, Plus, Trash2, MessageCircle, CheckCircle2, Copy } from 'lucide-react';
+import { ShoppingBag, X, Minus, Plus, Trash2, MessageCircle, CheckCircle2, Copy, Star } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { openStatus } from '../../utils/hours';
 import { buildPixPayload, normalizePixKey } from '../../utils/pix';
@@ -44,6 +44,9 @@ export default function CartUI({ cart, data, buttonStyle }) {
   const allowDelivery = settings.delivery !== false;
   const methods = (settings.paymentMethods && settings.paymentMethods.length ? settings.paymentMethods : ['pix', 'card', 'cash']);
   const zones = zonesOf(settings);
+  // Convite para avaliar no Google na tela de pedido enviado (mesmo link e a
+  // mesma chave "mostrar botão" da aba Google Maps do painel).
+  const reviewUrl = data.showReviewButton !== false ? data.googleReview?.reviewUrl || '' : '';
   const minOrder = Number(settings.minOrder || 0);
 
   const stored = readCustomer();
@@ -194,6 +197,21 @@ export default function CartUI({ cart, data, buttonStyle }) {
                       <Copy className="w-4 h-4" /> {pixCopied ? 'Código copiado!' : 'Copiar Pix copia e cola'}
                     </button>
                     <p className="text-xs text-gray-500 text-center">Abra o app do seu banco, escolha Pix copia e cola e cole o código. O valor já vem preenchido.</p>
+                  </div>
+                )}
+                {reviewUrl && (
+                  <div className="border rounded-xl p-4 space-y-2 bg-amber-50 border-amber-200">
+                    <div className="flex justify-center gap-1 text-amber-400" aria-hidden="true">
+                      {[0, 1, 2, 3, 4].map(i => <Star key={i} className="w-6 h-6" fill="currentColor" />)}
+                    </div>
+                    <p className="font-semibold text-gray-900">Gostou do atendimento?</p>
+                    <p className="text-sm text-gray-600">Avaliar {data.name ? <strong>{data.name}</strong> : 'a loja'} no Google leva menos de 1 minuto e ajuda muito quem trabalha aqui.</p>
+                    <a
+                      href={reviewUrl} target="_blank" rel="noopener noreferrer" data-track="review_after_order"
+                      className="w-full flex items-center justify-center gap-2 p-3 rounded-xl font-semibold bg-white border border-amber-300 text-gray-900 hover:bg-amber-100"
+                    >
+                      <Star className="w-4 h-4 text-amber-500" fill="currentColor" /> Avaliar no Google
+                    </a>
                   </div>
                 )}
                 <button onClick={startNew} className="w-full p-3 rounded-xl font-semibold" style={buttonStyle}>Fazer novo pedido</button>
