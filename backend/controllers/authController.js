@@ -4,7 +4,7 @@ const User = require('../models/User');
 const Tag = require('../models/Tag');
 const crypto = require('crypto');
 const mailer = require('../services/mailer');
-const { isPaidType, subscriptionState } = require('../utils/plans');
+const { isPaidType, subscriptionState, productLimit } = require('../utils/plans');
 
 const PAID_SIGNUP_MESSAGE = 'Cardápio e vitrine agora funcionam por assinatura: crie sua conta em /assinar. A tag é enviada depois para o seu endereço.';
 const {
@@ -189,7 +189,7 @@ exports.getMe = async (req, res) => {
     }
     // subscriptionState: usado pelo painel para avisos (aguardando pagamento,
     // perfil fora do ar). Somente leitura: não está em UPDATABLE_FIELDS.
-    res.json({ ...user.toObject(), subscriptionState: subscriptionState(user) });
+    res.json({ ...user.toObject(), subscriptionState: subscriptionState(user), productLimit: productLimit(user) });
   } catch (error) {
     console.error('Get me error:', error);
     res.status(500).json({ message: 'Erro no servidor' });

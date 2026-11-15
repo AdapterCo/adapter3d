@@ -1,7 +1,7 @@
 const User = require('../models/User');
 const Tag = require('../models/Tag');
 const storage = require('../services/storage');
-const { isProfileOnline } = require('../utils/plans');
+const { isProfileOnline, isPaidType, productLimit } = require('../utils/plans');
 const { normalizeSlug, isValidSlug } = require('../utils/validation');
 const { optimizeImage } = require('../services/imageProcessor');
 
@@ -143,6 +143,15 @@ exports.updateUser = async (req, res) => {
         categoryId: p?.categoryId && OBJECT_ID_REGEX.test(String(p.categoryId)) ? p.categoryId : null,
         optionGroups: sanitizeOptionGroups(p?.optionGroups)
       }));
+    }
+
+    // Limite de produtos do plano (30, 50 ou 100).
+    if (Array.isArray(updates.products)) {
+      const owner = await User.findOne({ id }).select('profileType subscription.tier').lean();
+      const limit = productLimit(owner);
+      if (owner && isPaidType(owner.profileType) && updates.products.length > limit) {
+        return res.status(400).json({ message: `Seu plano permite até ${limit} produtos. Remova alguns ou mude de plano na aba Plano.` });
+      }
     }
 
     // Bairros sem nome (linha adicionada e não preenchida) são descartados.

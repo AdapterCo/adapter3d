@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const BillingEvent = require('../models/BillingEvent');
 const mp = require('../services/mercadopago');
-const { isPaidType, subscriptionState, endOfDayPlusMonths, planPrice } = require('../utils/plans');
+const { isPaidType, subscriptionState, endOfDayPlusMonths, planPrice, planOptions, normalizeTier, productLimit } = require('../utils/plans');
 const {
   MIN_PASSWORD_LENGTH, EMAIL_COLLATION, normalizeEmail, isValidEmail,
   normalizeSlug, isValidSlug, normalizeBrPhone, validateShipping
@@ -18,15 +18,18 @@ const appUrl = () => (process.env.APP_URL || '').replace(/\/$/, '');
 
 // GET /api/billing/prices — preços exibidos na página de assinatura.
 exports.prices = (req, res) => {
-  res.json({ menu: planPrice('menu'), storefront: planPrice('storefront'), available: mp.isConfigured() });
+  res.json({ menu: planOptions('menu'), storefront: planOptions('storefront'), available: mp.isConfigured() });
 };
+
+const planReason = (user, tier) => `${PLAN_LABEL[user.profileType] || 'Assinatura'} Adapter Cards (até ${tier} produtos) - ${user.slug}`;
 
 // Cria a assinatura (preapproval pendente) no Mercado Pago e devolve o link de pagamento.
 async function startSubscription(user) {
+  const tier = productLimit(user);
   const pre = await mp.createSubscription({
-    reason: `${PLAN_LABEL[user.profileType] || 'Assinatura'} Adapter Cards - ${user.slug}`,
+    reason: planReason(user, tier),
     payerEmail: user.email,
-    amount: planPrice(user.profileType),
+    amount: planPrice(user.profileType, tier),
     backUrl: `${appUrl()}/admin`,
     externalReference: user.id
   });
@@ -47,6 +50,7 @@ exports.signup = async (req, res) => {
   const phone = normalizeBrPhone(b.phone);
   const password = typeof b.password === 'string' ? b.password : '';
   const shipping = validateShipping(b.shipping);
+  const tier = normalizeTier(b.tier);
 
   if (!name) return res.status(400).json({ message: 'Informe o nome do estabelecimento.' });
   if (!isValidEmail(email)) return res.status(400).json({ message: 'E-mail inválido.' });
@@ -54,6 +58,7 @@ exports.signup = async (req, res) => {
   if (!isValidSlug(slug)) return res.status(400).json({ message: 'Link inválido. Use de 3 a 32 letras minúsculas, números ou hífen.' });
   if (!phone) return res.status(400).json({ message: 'WhatsApp inválido. Informe com DDD.' });
   if (shipping.error) return res.status(400).json({ message: shipping.error });
+  if (planPrice(profileType, tier) === null) return res.status(400).json({ message: 'Plano indisponível. Escolha outro.' });
 
   if (await User.findOne({ email }).collation(EMAIL_COLLATION).select('_id')) {
     return res.status(400).json({ message: 'Este e-mail já está em uso.' });
@@ -75,7 +80,7 @@ exports.signup = async (req, res) => {
       whatsapp: phone,
       signupSource: 'subscription',
       termsAcceptedAt: new Date(),
-      subscription: { status: 'pending' },
+      subscription: { status: 'pending', tier },
       shipping: { ...shipping.value, status: 'pending' }
     });
   } catch (err) {
@@ -102,7 +107,7 @@ exports.signup = async (req, res) => {
 // GET /api/billing/me — situação da assinatura do lojista logado.
 exports.me = async (req, res) => {
   try {
-    const user = await User.findOne({ id: req.user.id }).select('profileType signupSource subscription shipping slug');
+    const user = await User.findOne({ id: req.user.id }).select('profileType signupSource subscription shipping slug products._id');
     if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
     const state = subscriptionState(user);
     const subId = user.subscription?.subscriptionId;
@@ -122,7 +127,10 @@ exports.me = async (req, res) => {
 
     res.json({
       ...state,
-      price: isPaidType(user.profileType) ? planPrice(user.profileType) : null,
+      price: isPaidType(user.profileType) ? planPrice(user.profileType, productLimit(user)) : null,
+      tier: productLimit(user),
+      productCount: (user.products || []).length,
+      plans: isPaidType(user.profileType) ? planOptions(user.profileType) : [],
       hasSubscription,
       invoiceUrl,
       shipping: {
@@ -161,6 +169,45 @@ exports.subscribe = async (req, res) => {
   } catch (err) {
     console.error('billing subscribe error:', mp.errorMessage(err));
     res.status(502).json({ message: 'Não foi possível criar a assinatura agora. Tente novamente.' });
+  }
+};
+
+// POST /api/billing/plan { tier } — muda o plano (quantidade de produtos).
+// Com assinatura ativa, o novo valor vale a partir da próxima cobrança no
+// Mercado Pago; o novo limite de produtos vale na hora. Para descer de plano,
+// os produtos já precisam caber no novo limite.
+exports.changePlan = async (req, res) => {
+  try {
+    const user = await User.findOne({ id: req.user.id }).select('profileType slug subscription products._id');
+    if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
+    if (!isPaidType(user.profileType)) return res.status(400).json({ message: 'Este tipo de perfil não tem planos.' });
+    const tier = Number(req.body?.tier);
+    const price = planPrice(user.profileType, tier);
+    if (normalizeTier(tier) !== tier || price === null) return res.status(400).json({ message: 'Plano indisponível.' });
+    if (tier === productLimit(user)) return res.status(400).json({ message: 'Você já está neste plano.' });
+    const count = (user.products || []).length;
+    if (count > tier) {
+      return res.status(400).json({ message: `Você tem ${count} produtos. Remova ${count - tier} para mudar para o plano de até ${tier}.` });
+    }
+
+    const subId = user.subscription?.subscriptionId;
+    const live = Boolean(subId) && user.subscription.status !== 'canceled';
+    if (live) {
+      if (!mp.isConfigured()) return res.status(503).json({ message: 'Troca de plano indisponível no momento.' });
+      await mp.updateSubscriptionAmount(subId, { amount: price, reason: planReason(user, tier) });
+    }
+    await User.updateOne({ _id: user._id }, { $set: { 'subscription.tier': tier } });
+    const brl = price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    res.json({
+      tier,
+      price,
+      message: live
+        ? `Plano alterado para até ${tier} produtos. As próximas cobranças serão de ${brl}/mês.`
+        : `Plano alterado para até ${tier} produtos (${brl}/mês).`
+    });
+  } catch (err) {
+    console.error('billing changePlan error:', mp.errorMessage(err));
+    res.status(502).json({ message: 'Não foi possível mudar o plano agora. Tente novamente.' });
   }
 };
 

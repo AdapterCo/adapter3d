@@ -155,6 +155,13 @@ export default function Admin() {
 
   const dirty = Boolean(data && savedJson !== null && JSON.stringify(data) !== savedJson);
 
+  // Mudança que já foi gravada no servidor (ex.: troca de plano): aplica nos
+  // dados e na versão salva, para não aparecer como "alteração não salva".
+  const onServerUpdate = (patch) => {
+    setData(prev => ({ ...prev, ...patch }));
+    setSavedJson(prev => (prev ? JSON.stringify({ ...JSON.parse(prev), ...patch }) : prev));
+  };
+
   // Fechar/recarregar a aba com alterações pendentes: o navegador pede confirmação.
   useEffect(() => {
     if (!dirty) return undefined;
@@ -272,6 +279,7 @@ export default function Admin() {
             data={data}
             setData={setData}
             onImageUpload={handleImageUpload}
+            onServerUpdate={onServerUpdate}
           />
         </div>
       </div>

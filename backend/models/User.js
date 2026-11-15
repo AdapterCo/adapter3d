@@ -98,6 +98,7 @@ const userSchema = new mongoose.Schema({
   // webhook de pagamento. Nunca editável pelo lojista (fora de UPDATABLE_FIELDS).
   subscription: {
     status: { type: String, enum: ['none', 'pending', 'active', 'canceled'], default: 'none' },
+    tier: { type: Number, enum: [30, 50, 100], default: 30 }, // plano: máximo de produtos
     activeUntil: { type: Date, default: null },
     customerId: { type: String, default: '' },      // payer_id no Mercado Pago
     subscriptionId: { type: String, default: '' },  // id da preapproval
@@ -263,8 +264,10 @@ const userSchema = new mongoose.Schema({
     type: [productSchema],
     default: [],
     validate: {
-      validator: (arr) => !Array.isArray(arr) || arr.length <= 30,
-      message: 'Máximo de 30 produtos por estabelecimento.'
+      // Teto absoluto (maior plano). O limite do plano do lojista é conferido no
+      // updateUser (subscription.tier).
+      validator: (arr) => !Array.isArray(arr) || arr.length <= 100,
+      message: 'Máximo de 100 produtos por estabelecimento.'
     }
   },
 

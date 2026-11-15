@@ -106,6 +106,7 @@ router.post('/billing/signup', rateLimit({
 router.get('/billing/me', auth, billingController.me);
 router.post('/billing/subscribe', auth, billingController.subscribe);
 router.post('/billing/cancel', auth, billingController.cancel);
+router.post('/billing/plan', auth, billingController.changePlan);
 router.post('/billing/webhook', billingController.webhook);
 
 // Admin Routes (protegidas por X-Admin-Key header — sem JWT)

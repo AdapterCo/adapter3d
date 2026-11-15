@@ -59,6 +59,11 @@ services:
       - MP_WEBHOOK_SECRET=${MP_WEBHOOK_SECRET:-}
       - PLAN_PRICE_MENU=${PLAN_PRICE_MENU:-39.90}
       - PLAN_PRICE_STOREFRONT=${PLAN_PRICE_STOREFRONT:-39.90}
+      # Planos maiores (50 e 100 produtos): só aparecem se o preço estiver definido no .env
+      - PLAN_PRICE_MENU_50=${PLAN_PRICE_MENU_50:-}
+      - PLAN_PRICE_MENU_100=${PLAN_PRICE_MENU_100:-}
+      - PLAN_PRICE_STOREFRONT_50=${PLAN_PRICE_STOREFRONT_50:-}
+      - PLAN_PRICE_STOREFRONT_100=${PLAN_PRICE_STOREFRONT_100:-}
     networks:
       - adapter3d_internal
       - traefik9

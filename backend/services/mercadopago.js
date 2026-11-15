@@ -50,6 +50,12 @@ const getSubscription = (id) => new PreApproval(getClient()).get({ id });
 
 const cancelSubscription = (id) => new PreApproval(getClient()).update({ id, body: { status: 'cancelled' } });
 
+// Troca de plano: novo valor mensal, aplicado nas próximas cobranças.
+const updateSubscriptionAmount = (id, { amount, reason }) => new PreApproval(getClient()).update({
+  id,
+  body: { reason, auto_recurring: { transaction_amount: amount, currency_id: 'BRL' } }
+});
+
 // Pagamento mensal de uma assinatura (authorized payment).
 const getAuthorizedPayment = (id) => new Invoice(getClient()).get({ id });
 
@@ -81,6 +87,6 @@ const isNotFound = (err) => err?.status === 404 || err?.name === 'MPNotFoundErro
 
 module.exports = {
   isConfigured, errorMessage, isNotFound,
-  createSubscription, getSubscription, cancelSubscription, getAuthorizedPayment, getPayment, getChargeback,
+  createSubscription, getSubscription, cancelSubscription, updateSubscriptionAmount, getAuthorizedPayment, getPayment, getChargeback,
   validateWebhookSignature
 };

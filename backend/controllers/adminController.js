@@ -122,7 +122,8 @@ function adminUserView(u) {
       canceled: u.subscription?.status === 'canceled',
       customerId: u.subscription?.customerId || '',
       subscriptionId: u.subscription?.subscriptionId || '',
-      refundedAt: u.subscription?.refundedAt || null
+      refundedAt: u.subscription?.refundedAt || null,
+      tier: isPaidType(u.profileType) ? (u.subscription?.tier || 30) : null
     },
     shipping: u.shipping?.status && u.shipping.status !== 'none' ? {
       status: u.shipping.status,

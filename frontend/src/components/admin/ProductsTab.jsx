@@ -4,11 +4,13 @@ import useDragReorder, { moveItem } from '../../hooks/useDragReorder';
 import api from '../../services/api';
 import { centsToInput, inputToCents, newObjectId } from './utils';
 
-const MAX_PRODUCTS = 30;
+// Limite padrão; o real vem do plano (data.productLimit: 30, 50 ou 100).
+const DEFAULT_MAX_PRODUCTS = 30;
 
 export default function ProductsTab({ data, setData }) {
   const products = data.products || [];
   const categories = data.categories || [];
+  const MAX_PRODUCTS = data.productLimit || DEFAULT_MAX_PRODUCTS;
   const atLimit = products.length >= MAX_PRODUCTS;
 
   const addProduct = () => {
@@ -63,7 +65,7 @@ export default function ProductsTab({ data, setData }) {
         <div>
           <h3 className="font-semibold text-lg">Produtos</h3>
           <p className="text-xs text-gray-500 mt-0.5">
-            {products.length} / {MAX_PRODUCTS} produtos
+            {products.length} / {MAX_PRODUCTS} produtos{atLimit && data.subscriptionState?.required ? ' · precisa de mais? Mude de plano na aba 💳 Plano' : ''}
           </p>
         </div>
         <button

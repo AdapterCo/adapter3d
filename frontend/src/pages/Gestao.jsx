@@ -141,6 +141,7 @@ function Subscribers({ call }) {
                 <td className="p-3">{TYPE_LABEL[u.profileType]}</td>
                 <td className="p-3 space-y-1">
                   <Badge state={u.subscription.state} />
+                  {u.subscription.tier && <p className="text-xs text-gray-600">plano até {u.subscription.tier} produtos</p>}
                   {u.subscription.canceled && u.subscription.state === 'active' && <p className="text-xs text-gray-500">renovação cancelada</p>}
                   {u.subscription.refundedAt && <p className="text-xs font-medium text-red-700">Estorno/contestação em {fmtDate(u.subscription.refundedAt)}</p>}
                   {u.subscription.customerId && <p className="text-[11px] text-gray-400 break-all">{u.subscription.customerId}</p>}

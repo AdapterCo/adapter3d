@@ -18,7 +18,7 @@ const SHIPPING = {
   sent: 'Sua tag foi enviada.'
 };
 
-export default function PlanTab() {
+export default function PlanTab({ onServerUpdate }) {
   const [info, setInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -60,6 +60,24 @@ export default function PlanTab() {
       await load();
     } catch (err) {
       setError(err.response?.data?.message || 'Não foi possível cancelar agora.');
+    } finally { setBusy(false); }
+  };
+
+  // Troca de plano (quantidade de produtos).
+  const changePlan = async (opt) => {
+    const up = opt.tier > info.tier;
+    const text = info.hasSubscription
+      ? `Mudar para o plano de até ${opt.tier} produtos por ${brl(opt.price)}/mês? O novo valor vale a partir da próxima cobrança${up ? ' e o limite maior já fica liberado agora' : ''}.`
+      : `Mudar para o plano de até ${opt.tier} produtos (${brl(opt.price)}/mês)?`;
+    if (!window.confirm(text)) return;
+    setBusy(true); setError(''); setMsg('');
+    try {
+      const res = await api.post('/billing/plan', { tier: opt.tier });
+      setMsg(res.data.message);
+      onServerUpdate?.({ productLimit: res.data.tier });
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Não foi possível mudar o plano agora.');
     } finally { setBusy(false); }
   };
 
@@ -123,6 +141,39 @@ export default function PlanTab() {
           <RefreshCw className="w-3 h-3" /> Atualizar situação
         </button>
       </div>
+
+      {info.plans?.length > 1 && (
+        <div className="border rounded-xl p-5 space-y-3 bg-white">
+          <div>
+            <p className="font-semibold text-gray-900">Quantidade de produtos</p>
+            <p className="text-sm text-gray-500">Você usa {info.productCount} de {info.tier} produtos. Escolha o plano que cabe no seu cardápio.</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {info.plans.map(opt => {
+              const current = opt.tier === info.tier;
+              const tooSmall = info.productCount > opt.tier;
+              return (
+                <div key={opt.tier} className={`rounded-xl border-2 p-4 flex flex-col gap-2 ${current ? 'border-blue-600 bg-blue-50' : 'border-gray-200'}`}>
+                  <p className="font-semibold text-gray-900">Até {opt.tier} produtos</p>
+                  <p className="text-lg font-bold text-gray-900">{brl(opt.price)}<span className="text-xs font-normal text-gray-500">/mês</span></p>
+                  {current ? (
+                    <span className="mt-auto text-sm font-medium text-blue-700">Seu plano</span>
+                  ) : (
+                    <button
+                      onClick={() => changePlan(opt)} disabled={busy || tooSmall}
+                      title={tooSmall ? `Você tem ${info.productCount} produtos: remova alguns antes` : ''}
+                      className="mt-auto py-2 rounded-lg border text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {opt.tier > info.tier ? 'Aumentar' : 'Diminuir'}
+                    </button>
+                  )}
+                  {tooSmall && !current && <p className="text-xs text-gray-500">Remova {info.productCount - opt.tier} produto(s) para usar este plano.</p>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {info.shipping?.status && info.shipping.status !== 'none' && (
         <div className="border rounded-xl p-4 bg-white flex gap-3 items-start">

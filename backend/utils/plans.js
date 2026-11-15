@@ -56,10 +56,38 @@ function todayInBrazil(now = new Date()) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
 }
 
-function planPrice(profileType) {
-  const env = profileType === 'storefront' ? process.env.PLAN_PRICE_STOREFRONT : process.env.PLAN_PRICE_MENU;
-  const n = Number(String(env || '').replace(',', '.'));
-  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : 39.9;
+// Planos por quantidade de produtos. O de 30 é o básico (preço em
+// PLAN_PRICE_MENU / PLAN_PRICE_STOREFRONT, padrão 39,90). Os maiores só existem
+// se o preço estiver configurado: PLAN_PRICE_MENU_50, PLAN_PRICE_MENU_100,
+// PLAN_PRICE_STOREFRONT_50, PLAN_PRICE_STOREFRONT_100.
+const PLAN_TIERS = [30, 50, 100];
+const BASE_TIER = 30;
+
+const normalizeTier = (t) => (PLAN_TIERS.includes(Number(t)) ? Number(t) : BASE_TIER);
+
+function readPrice(name) {
+  const n = Number(String(process.env[name] || '').replace(',', '.'));
+  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null;
 }
 
-module.exports = { PAID_TYPES, isPaidType, isLegacy, subscriptionState, isProfileOnline, endOfDayPlusMonths, todayInBrazil, planPrice };
+// Preço mensal (R$) do plano, ou null se esse plano não estiver à venda.
+function planPrice(profileType, tier = BASE_TIER) {
+  const base = profileType === 'storefront' ? 'PLAN_PRICE_STOREFRONT' : 'PLAN_PRICE_MENU';
+  const t = normalizeTier(tier);
+  if (t === BASE_TIER) return readPrice(base) ?? 39.9;
+  return readPrice(`${base}_${t}`);
+}
+
+// Planos à venda para o tipo: [{ tier, price }].
+const planOptions = (profileType) => PLAN_TIERS
+  .map(tier => ({ tier, price: planPrice(profileType, tier) }))
+  .filter(o => o.price !== null);
+
+// Máximo de produtos do perfil (cardápio/vitrine seguem o plano; contas antigas
+// e outros tipos ficam no básico).
+const productLimit = (user) => normalizeTier(user?.subscription?.tier);
+
+module.exports = {
+  PAID_TYPES, isPaidType, isLegacy, subscriptionState, isProfileOnline, endOfDayPlusMonths, todayInBrazil,
+  PLAN_TIERS, BASE_TIER, normalizeTier, planPrice, planOptions, productLimit
+};

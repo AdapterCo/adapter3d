@@ -30,6 +30,13 @@ export default function Subscribe() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState(null); // { invoiceUrl }
+  const [tier, setTier] = useState(Number(params.get('plano')) || 30);
+
+  // Planos à venda para o tipo escolhido: [{ tier, price }]. Se o plano marcado
+  // não existir para este tipo, usa o primeiro (30 produtos).
+  const options = Array.isArray(prices?.[type]) ? prices[type] : [];
+  const chosen = options.find(o => o.tier === tier) || options[0] || null;
+  const fromPrice = (t) => (Array.isArray(prices?.[t]) && prices[t].length ? Math.min(...prices[t].map(o => o.price)) : null);
 
   useEffect(() => {
     api.get('/billing/prices').then(r => setPrices(r.data)).catch(() => setPrices({ available: false }));
@@ -74,6 +81,7 @@ export default function Subscribe() {
         password: f.password,
         phone: onlyDigits(f.phone),
         shipping: { ...addr, postalCode: onlyDigits(addr.postalCode) },
+        tier: chosen?.tier || 30,
         acceptTerms: true // o formulário só envia com o checkbox marcado
       });
       localStorage.setItem('token', res.data.token);
@@ -134,10 +142,27 @@ export default function Subscribe() {
                 <t.icon className={`w-6 h-6 mb-2 ${type === t.value ? 'text-blue-600' : 'text-gray-500'}`} />
                 <p className="font-semibold text-gray-900">{t.label}</p>
                 <p className="text-xs text-gray-500 mt-1">{t.desc}</p>
-                {prices?.[t.value] && <p className="mt-2 font-bold text-gray-900">{brl(prices[t.value])}<span className="text-xs font-normal text-gray-500">/mês</span></p>}
+                {fromPrice(t.value) !== null && <p className="mt-2 font-bold text-gray-900"><span className="text-xs font-normal text-gray-500">a partir de </span>{brl(fromPrice(t.value))}<span className="text-xs font-normal text-gray-500">/mês</span></p>}
               </button>
             ))}
           </div>
+
+          {options.length > 1 && (
+            <section className="space-y-2">
+              <h2 className="font-semibold text-gray-800">Quantos produtos você vai cadastrar?</h2>
+              <div className="grid grid-cols-3 gap-2">
+                {options.map(o => (
+                  <button type="button" key={o.tier} onClick={() => setTier(o.tier)} aria-pressed={chosen?.tier === o.tier}
+                    className={`p-3 rounded-xl border-2 text-center transition-all ${chosen?.tier === o.tier ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                    <p className="text-sm font-semibold text-gray-900">Até {o.tier}</p>
+                    <p className="text-xs text-gray-500">produtos</p>
+                    <p className="mt-1 font-bold text-gray-900 text-sm">{brl(o.price)}<span className="text-[10px] font-normal text-gray-500">/mês</span></p>
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500">Dá para mudar de plano depois, pelo painel.</p>
+            </section>
+          )}
 
           <section className="space-y-3">
             <h2 className="font-semibold text-gray-800">Seu estabelecimento</h2>
@@ -216,7 +241,7 @@ export default function Subscribe() {
 
           <button type="submit" disabled={loading || prices?.available === false}
             className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold disabled:opacity-60">
-            {loading ? 'Criando sua conta...' : `Criar conta e pagar ${prices?.[type] ? brl(prices[type]) + '/mês' : ''}`}
+            {loading ? 'Criando sua conta...' : `Criar conta e pagar ${chosen ? brl(chosen.price) + '/mês' : ''}`}
           </button>
           <p className="text-xs text-gray-500 text-center">Renovação mensal automática. Cancele quando quiser pelo painel.</p>
         </form>
