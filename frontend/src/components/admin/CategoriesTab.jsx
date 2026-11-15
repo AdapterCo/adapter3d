@@ -1,4 +1,5 @@
-import { Trash2, ArrowUp, ArrowDown, Eye, EyeOff } from 'lucide-react';
+import { Trash2, ArrowUp, ArrowDown, Eye, EyeOff, GripVertical } from 'lucide-react';
+import useDragReorder, { moveItem } from '../../hooks/useDragReorder';
 import { newObjectId } from './utils';
 
 export default function CategoriesTab({ data, setData }) {
@@ -15,6 +16,8 @@ export default function CategoriesTab({ data, setData }) {
     const next = categories.map((c, i) => (i === index ? { ...c, [field]: value } : c));
     setData({ ...data, categories: next });
   };
+
+  const drag = useDragReorder((from, to) => setData(prev => ({ ...prev, categories: moveItem(prev.categories || [], from, to) })));
 
   const removeCategory = (index) => {
     const cat = categories[index];
@@ -56,9 +59,12 @@ export default function CategoriesTab({ data, setData }) {
         </p>
       )}
 
-      <div className="space-y-2">
+      <div className="space-y-2" data-drag-list>
         {categories.map((cat, index) => (
-          <div key={cat._id || `new-${index}`} className="flex items-center gap-2 bg-gray-50 p-3 rounded-lg border">
+          <div key={cat._id || `new-${index}`} {...drag.itemProps(index)} className="flex items-center gap-2 bg-gray-50 p-3 rounded-lg border transition-shadow data-[dragging=true]:ring-2 data-[dragging=true]:ring-blue-400 data-[dragging=true]:shadow-lg data-[dragging=true]:relative data-[dragging=true]:z-10">
+            <button type="button" {...drag.handleProps(index)} className="p-1 text-gray-400 hover:text-gray-700 select-none">
+              <GripVertical className="w-5 h-5" />
+            </button>
             <div className="flex flex-col gap-1">
               <button
                 onClick={() => move(index, -1)}

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Trash2, ArrowUp, ArrowDown, ImageIcon, Eye, EyeOff, Sparkles, Ban, ChevronDown, ChevronUp, Plus } from 'lucide-react';
+import { Trash2, ArrowUp, ArrowDown, ImageIcon, Eye, EyeOff, Sparkles, Ban, ChevronDown, ChevronUp, Plus, GripVertical } from 'lucide-react';
+import useDragReorder, { moveItem } from '../../hooks/useDragReorder';
 import api from '../../services/api';
 import { centsToInput, inputToCents, newObjectId } from './utils';
 
@@ -22,6 +23,8 @@ export default function ProductsTab({ data, setData }) {
     const next = products.map((p, i) => (i === index ? { ...p, [field]: value } : p));
     setData({ ...data, products: next });
   };
+
+  const drag = useDragReorder((from, to) => setData(prev => ({ ...prev, products: moveItem(prev.products || [], from, to) })));
 
   const removeProduct = (index) => {
     if (!confirm('Remover este produto?')) return;
@@ -77,9 +80,10 @@ export default function ProductsTab({ data, setData }) {
         </p>
       )}
 
-      <div className="space-y-3">
+      {products.length > 1 && <p className="text-xs text-gray-500 -mt-3">Arraste pela alça <GripVertical className="inline w-3.5 h-3.5" /> para mudar a ordem no cardápio.</p>}
+      <div className="space-y-3" data-drag-list>
         {products.map((p, index) => (
-          <div key={p._id || `new-${index}`} className="bg-gray-50 p-4 rounded-lg border">
+          <div key={p._id || `new-${index}`} {...drag.itemProps(index)} className="bg-gray-50 p-4 rounded-lg border transition-shadow data-[dragging=true]:ring-2 data-[dragging=true]:ring-blue-400 data-[dragging=true]:shadow-lg data-[dragging=true]:relative data-[dragging=true]:z-10">
             <div className="flex gap-4">
               {/* Foto */}
               <label className="cursor-pointer flex-shrink-0">
@@ -181,6 +185,9 @@ export default function ProductsTab({ data, setData }) {
 
               {/* Ações */}
               <div className="flex flex-col gap-1">
+                <button type="button" {...drag.handleProps(index)} className="p-1 text-gray-400 hover:text-gray-700 select-none">
+                  <GripVertical className="w-4 h-4" />
+                </button>
                 <button
                   onClick={() => move(index, -1)}
                   disabled={index === 0}
