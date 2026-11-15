@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { X, ImageIcon, ShoppingBag, MessageCircle } from 'lucide-react';
+import { X, ImageIcon, ShoppingBag, MessageCircle, Share2 } from 'lucide-react';
+import { shareProduct } from '../../utils/productLink';
 import { centsToBRL, buildWhatsappLink } from '../admin/utils';
 import { QtyControl } from './CartUI';
 import { groupsOf, groupRule, hasPromo, optionsLabel, unitPrice, validateSelection } from '../../utils/productOptions';
@@ -24,7 +25,13 @@ export default function ProductModal({ product, data, cart, buttonStyle, accentC
   const [qty, setQty] = useState(1);
   const [chosen, setChosen] = useState([]);
   const [error, setError] = useState('');
+  const [shareMsg, setShareMsg] = useState('');
   const groups = groupsOf(product);
+
+  const share = async () => {
+    const r = await shareProduct({ slug: data.slug, product, storeName: data.name });
+    if (r === 'copied') { setShareMsg('Link copiado!'); setTimeout(() => setShareMsg(''), 2500); }
+  };
   const price = unitPrice(product, chosen);
 
   const toggle = (g, optionId) => {
@@ -63,6 +70,11 @@ export default function ProductModal({ product, data, cart, buttonStyle, accentC
         <button onClick={onClose} aria-label="Fechar" className="absolute top-3 right-3 z-10 p-2 bg-white/90 rounded-full shadow-md hover:bg-white">
           <X className="w-5 h-5" />
         </button>
+        {data.slug && !data._preview && (
+          <button onClick={share} data-track="share_product" aria-label="Compartilhar produto" className="absolute top-3 left-3 z-10 flex items-center gap-1 px-3 py-2 bg-white/90 rounded-full shadow-md hover:bg-white text-sm font-medium text-gray-800">
+            <Share2 className="w-4 h-4" /> {shareMsg || 'Compartilhar'}
+          </button>
+        )}
 
         <div className="overflow-y-auto">
           {product.image ? (

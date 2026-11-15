@@ -6,6 +6,7 @@ import CartUI, { QtyControl } from '../components/cart/CartUI';
 import ProductModal, { PriceTag, SoldOutBadge } from '../components/cart/ProductModal';
 import { hasOptions } from '../utils/productOptions';
 import { track } from '../services/track';
+import { readProductParam, setProductParam } from '../utils/productLink';
 import useCart from '../hooks/useCart';
 import OpenStatus from '../components/OpenStatus';
 
@@ -34,11 +35,20 @@ export default function MenuProfile({ data }) {
   const accentStyle = { color: theme.buttonColor };
   const buttonStyle = { backgroundColor: theme.buttonColor, color: theme.buttonTextColor };
   const cart = useCart(data);
-  const [selectedId, setSelectedId] = useState(null);
+  // Link direto (?p=<id>): abre o produto já na chegada, se ele estiver visível.
+  const [selectedId, setSelectedId] = useState(() => {
+    const id = readProductParam();
+    return id && products.some(p => String(p._id) === id) ? id : null;
+  });
   const selected = products.find(p => String(p._id) === selectedId);
   const openProduct = (p) => {
     setSelectedId(String(p._id));
+    if (!data._preview) setProductParam(String(p._id));
     track(data, 'product_view', { target: String(p._id) });
+  };
+  const closeProduct = () => {
+    setSelectedId(null);
+    if (!data._preview) setProductParam(null);
   };
 
   // Agrupa produtos por categoria. Os "sem categoria" vão pro final.
@@ -151,7 +161,7 @@ export default function MenuProfile({ data }) {
         </div>
       </div>
       {selected && (
-        <ProductModal key={selected._id} product={selected} data={data} cart={cart} buttonStyle={buttonStyle} accentColor={theme.buttonColor} onClose={() => setSelectedId(null)} />
+        <ProductModal key={selected._id} product={selected} data={data} cart={cart} buttonStyle={buttonStyle} accentColor={theme.buttonColor} onClose={closeProduct} />
       )}
       <CartUI cart={cart} data={data} buttonStyle={buttonStyle} />
     </div>

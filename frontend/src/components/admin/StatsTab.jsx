@@ -22,6 +22,7 @@ const CLICK_LABEL = {
   directions_uber: 'Como chegar · Uber',
   directions_99: 'Como chegar · 99',
   share: 'Compartilhar',
+  share_product: 'Compartilhar produto',
   link: 'Link'
 };
 

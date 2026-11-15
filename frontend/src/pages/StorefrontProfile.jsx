@@ -7,6 +7,7 @@ import ProductModal, { PriceTag, SoldOutBadge } from '../components/cart/Product
 import useCart from '../hooks/useCart';
 import OpenStatus from '../components/OpenStatus';
 import { track } from '../services/track';
+import { readProductParam, setProductParam } from '../utils/productLink';
 
 export default function StorefrontProfile({ data }) {
   const { theme } = data;
@@ -25,7 +26,11 @@ export default function StorefrontProfile({ data }) {
 
   const categories = visibleCategories.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-  const [selectedId, setSelectedId] = useState(null);
+  const [selectedId, setSelectedId] = useState(() => {
+    // Link direto (?p=<id>): abre o produto já na chegada, se ele estiver visível.
+    const id = readProductParam();
+    return id && products.some(p => String(p._id) === id) ? id : null;
+  });
   const [activeCategory, setActiveCategory] = useState('all');
 
   const backgroundStyle = {
@@ -44,7 +49,13 @@ export default function StorefrontProfile({ data }) {
 
   const openProduct = (p) => {
     setSelectedId(String(p._id));
+    if (!data._preview) setProductParam(String(p._id));
     track(data, 'product_view', { target: String(p._id) });
+  };
+
+  const closeProduct = () => {
+    setSelectedId(null);
+    if (!data._preview) setProductParam(null);
   };
 
   const handleShare = () => {
@@ -161,7 +172,7 @@ export default function StorefrontProfile({ data }) {
       </div>
 
       {selected && (
-        <ProductModal key={selected._id} product={selected} data={data} cart={cart} buttonStyle={buttonStyle} accentColor={theme.buttonColor} onClose={() => setSelectedId(null)} />
+        <ProductModal key={selected._id} product={selected} data={data} cart={cart} buttonStyle={buttonStyle} accentColor={theme.buttonColor} onClose={closeProduct} />
       )}
 
       <CartUI cart={cart} data={data} buttonStyle={buttonStyle} />

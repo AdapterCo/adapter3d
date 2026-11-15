@@ -82,10 +82,47 @@ function renderNotFound(res) {
   });
 }
 
-const FIELDS = 'name slug avatar address profileType pet.name pet.lostMode signupSource subscription';
+const brl = (cents) => (Number(cents || 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+// Produto visível (ele e a categoria) do cardápio/vitrine, pelo ?p=<id>.
+function findProduct(user, productId) {
+  if (!/^[a-f0-9]{24}$/i.test(String(productId || ''))) return null;
+  if (user.profileType !== 'menu' && user.profileType !== 'storefront') return null;
+  const p = (user.products || []).find(x => String(x._id) === String(productId));
+  if (!p || p.isVisible === false) return null;
+  if (p.categoryId) {
+    const cat = (user.categories || []).find(c => String(c._id) === String(p.categoryId));
+    if (!cat || cat.isVisible === false) return null;
+  }
+  return p;
+}
+
+// Link direto do produto: foto, nome e preço do produto na prévia.
+function renderProduct(res, user, p) {
+  const base = appUrl();
+  const https = (u) => (/^https:\/\//.test(u || '') ? u : '');
+  const price = Number(p.compareAtPrice) > Number(p.price || 0)
+    ? `De ${brl(p.compareAtPrice)} por ${brl(p.price)}`
+    : brl(p.price);
+  const parts = [p.soldOut ? `${price} · esgotado no momento` : price];
+  if (p.description) parts.push(String(p.description).replace(/\s+/g, ' ').slice(0, 140));
+  parts.push(user.profileType === 'menu' ? 'Peça pelo WhatsApp' : 'Compre pelo WhatsApp');
+  render(res, {
+    title: `${p.name} · ${user.name || 'Adapter Cards'}`,
+    description: parts.join(' · '),
+    image: https(p.image) || https(user.avatar) || `${base}/logo.png`,
+    url: `${base}/${user.slug}?p=${p._id}`
+  });
+}
+
+const FIELDS = 'name slug avatar address profileType pet.name pet.lostMode signupSource subscription products categories';
 
 // Perfil fora do ar (assinatura não paga): prévia genérica, sem dados da loja.
-const renderUserOrUnavailable = (res, user) => (isProfileOnline(user) ? renderUser(res, user) : renderNotFound(res));
+const renderUserOrUnavailable = (res, user, productId) => {
+  if (!isProfileOnline(user)) return renderNotFound(res);
+  const product = findProduct(user, productId);
+  return product ? renderProduct(res, user, product) : renderUser(res, user);
+};
 
 // GET /api/og/:slug  (aceita também slugs antigos do perfil)
 exports.bySlug = async (req, res) => {
@@ -93,7 +130,7 @@ exports.bySlug = async (req, res) => {
     const slug = String(req.params.slug || '').toLowerCase().slice(0, 64);
     const user = await User.findOne({ slug }).select(FIELDS).lean()
       || await User.findOne({ previousSlugs: slug }).select(FIELDS).lean();
-    return user ? renderUserOrUnavailable(res, user) : renderNotFound(res);
+    return user ? renderUserOrUnavailable(res, user, req.query.p) : renderNotFound(res);
   } catch (error) {
     console.error('og bySlug error:', error.message);
     renderNotFound(res);
