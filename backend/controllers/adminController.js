@@ -121,7 +121,8 @@ function adminUserView(u) {
       activeUntil: state.activeUntil || u.subscription?.activeUntil || null,
       canceled: u.subscription?.status === 'canceled',
       customerId: u.subscription?.customerId || '',
-      subscriptionId: u.subscription?.subscriptionId || ''
+      subscriptionId: u.subscription?.subscriptionId || '',
+      refundedAt: u.subscription?.refundedAt || null
     },
     shipping: u.shipping?.status && u.shipping.status !== 'none' ? {
       status: u.shipping.status,
@@ -147,6 +148,8 @@ exports.summary = async (req, res) => {
     const byType = {};
     const subs = { active: 0, pending: 0, expired: 0, canceled: 0, legacy: 0 };
     let shipmentsPending = 0;
+    let refunds30d = 0;
+    const since = Date.now() - 30 * 24 * 60 * 60 * 1000;
     for (const u of users) {
       byType[u.profileType] = (byType[u.profileType] || 0) + 1;
       if (isPaidType(u.profileType)) {
@@ -154,9 +157,10 @@ exports.summary = async (req, res) => {
         if (subs[st] !== undefined) subs[st] += 1;
       }
       if (u.shipping?.status === 'pending') shipmentsPending += 1;
+      if (u.subscription?.refundedAt && new Date(u.subscription.refundedAt).getTime() >= since) refunds30d += 1;
     }
     const tagsFree = await Tag.countDocuments({ isActivated: false });
-    res.json({ users: users.length, byType, subscriptions: subs, shipmentsPending, tagsFree });
+    res.json({ users: users.length, byType, subscriptions: subs, shipmentsPending, tagsFree, refunds30d });
   } catch (error) {
     console.error('admin summary error:', error);
     res.status(500).json({ message: 'Erro ao carregar resumo.' });

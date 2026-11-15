@@ -73,7 +73,19 @@ const userSchema = new mongoose.Schema({
     activeUntil: { type: Date, default: null },
     customerId: { type: String, default: '' },      // payer_id no Mercado Pago
     subscriptionId: { type: String, default: '' },  // id da preapproval
-    invoiceUrl: { type: String, default: '' }       // link de pagamento (init_point)
+    invoiceUrl: { type: String, default: '' },      // link de pagamento (init_point)
+    // Pagamentos que liberaram meses. Permite desfazer exatamente o mês de um
+    // pagamento estornado/contestado. Mantém só os mais recentes.
+    payments: [{
+      _id: false,
+      paymentId: { type: String },
+      invoiceId: { type: String },
+      chargeDate: { type: String },        // AAAA-MM-DD da cobrança
+      coveredUntil: { type: Date },        // fim do mês liberado por ele
+      revokedAt: { type: Date, default: null },
+      revokeReason: { type: String, default: '' } // refunded | charged_back
+    }],
+    refundedAt: { type: Date, default: null }      // último estorno/contestação
   },
 
   // Endereço de entrega da tag física e situação do envio.

@@ -58,7 +58,7 @@ function Summary({ call }) {
   const cards = [
     ['Contas', s.users], ['Assinaturas ativas', s.subscriptions.active], ['Aguardando pagamento', s.subscriptions.pending],
     ['Vencidas', s.subscriptions.expired + s.subscriptions.canceled], ['Legado', s.subscriptions.legacy],
-    ['Tags a enviar', s.shipmentsPending], ['Tags livres', s.tagsFree]
+    ['Tags a enviar', s.shipmentsPending], ['Tags livres', s.tagsFree], ['Estornos (30 dias)', s.refunds30d || 0]
   ];
   return (
     <div className="space-y-4">
@@ -142,6 +142,7 @@ function Subscribers({ call }) {
                 <td className="p-3 space-y-1">
                   <Badge state={u.subscription.state} />
                   {u.subscription.canceled && u.subscription.state === 'active' && <p className="text-xs text-gray-500">renovação cancelada</p>}
+                  {u.subscription.refundedAt && <p className="text-xs font-medium text-red-700">Estorno/contestação em {fmtDate(u.subscription.refundedAt)}</p>}
                   {u.subscription.customerId && <p className="text-[11px] text-gray-400 break-all">{u.subscription.customerId}</p>}
                 </td>
                 <td className="p-3 whitespace-nowrap">{fmtDate(u.subscription.activeUntil)}</td>

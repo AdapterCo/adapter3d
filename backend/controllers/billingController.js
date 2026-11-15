@@ -183,6 +183,80 @@ exports.cancel = async (req, res) => {
   }
 };
 
+// Status de pagamento que desfazem o mês liberado: estorno e contestação.
+const REVOKED_STATUSES = new Set(['refunded', 'charged_back']);
+const MAX_PAYMENTS_KEPT = 24;
+
+const plainPayments = (user) => (user.subscription?.payments || []).map(p => (p.toObject ? p.toObject() : { ...p }));
+
+// Fim do período coberto pelos pagamentos que não foram estornados.
+function coverageFrom(payments) {
+  const valid = payments.filter(p => !p.revokedAt && p.coveredUntil);
+  return valid.length ? new Date(Math.max(...valid.map(p => new Date(p.coveredUntil).getTime()))) : null;
+}
+
+// Registra um pagamento aprovado: libera 1 mês a partir da data da cobrança.
+// Idempotente: o mesmo pagamento nunca libera dois meses.
+async function creditPayment(user, { paymentId, invoiceId, chargeDate }) {
+  const payments = plainPayments(user);
+  if (payments.some(p => p.paymentId === paymentId)) return;
+  payments.push({ paymentId, invoiceId, chargeDate, coveredUntil: endOfDayPlusMonths(chargeDate, 1), revokedAt: null, revokeReason: '' });
+  const kept = payments.slice(-MAX_PAYMENTS_KEPT);
+  const fromPayments = coverageFrom(kept);
+  const current = user.subscription.activeUntil;
+  const activeUntil = current && fromPayments && current > fromPayments ? current : fromPayments;
+  await User.updateOne({ _id: user._id }, {
+    $set: {
+      'subscription.payments': kept,
+      'subscription.activeUntil': activeUntil,
+      'subscription.status': user.subscription.status === 'canceled' ? 'canceled' : 'active',
+      'subscription.invoiceUrl': ''
+    }
+  });
+}
+
+// Estorno ou contestação de um pagamento: desfaz o mês que ele liberou (o
+// perfil sai do ar na hora, salvo se houver outro mês pago e não estornado),
+// cancela a assinatura no Mercado Pago e registra a data para o /gestao.
+async function revokePayment(paymentId, reason) {
+  const user = await User.findOne({ 'subscription.payments.paymentId': paymentId }).select('id subscription');
+  if (!user) {
+    console.warn(`webhook: estorno/contestação do pagamento ${paymentId} sem assinatura correspondente`);
+    return null;
+  }
+  const payments = plainPayments(user);
+  const entry = payments.find(p => p.paymentId === paymentId);
+  if (entry.revokedAt) return user.id; // já desfeito antes
+  entry.revokedAt = new Date();
+  entry.revokeReason = reason;
+
+  const now = new Date();
+  const remaining = coverageFrom(payments);
+  // Sem outro mês pago válido: vencimento no passado = fora do ar imediatamente.
+  const activeUntil = remaining && remaining > now ? remaining : new Date(now.getTime() - 1000);
+
+  // Sem novas cobranças depois de um estorno.
+  if (user.subscription.subscriptionId && user.subscription.status !== 'canceled') {
+    try {
+      await mp.cancelSubscription(user.subscription.subscriptionId);
+    } catch (e) {
+      console.error(`estorno: falha ao cancelar assinatura ${user.subscription.subscriptionId} no Mercado Pago:`, mp.errorMessage(e));
+    }
+  }
+
+  await User.updateOne({ _id: user._id }, {
+    $set: {
+      'subscription.payments': payments,
+      'subscription.activeUntil': activeUntil,
+      'subscription.status': 'canceled',
+      'subscription.invoiceUrl': '',
+      'subscription.refundedAt': entry.revokedAt
+    }
+  });
+  console.warn(`${reason === 'charged_back' ? 'Contestação' : 'Estorno'} do pagamento ${paymentId}: conta ${user.id} com assinatura cancelada`);
+  return user.id;
+}
+
 // POST /api/billing/webhook — notificações do Mercado Pago.
 // O Mercado Pago envia ?data.id=...&type=... e o corpo { type, action, data: { id } }.
 // A notificação só diz "algo mudou": o estado real é sempre consultado na API.
@@ -208,28 +282,27 @@ exports.webhook = async (req, res) => {
     if (type === 'subscription_authorized_payment') {
       // Cobrança mensal da assinatura.
       const inv = await mp.getAuthorizedPayment(dataId);
-      if (inv?.payment?.status === 'approved' && inv.preapproval_id) {
+      const payStatus = inv?.payment?.status;
+      if (payStatus === 'approved' && inv.preapproval_id) {
         const user = await User.findOne({ 'subscription.subscriptionId': inv.preapproval_id }).select('subscription id');
         if (user) {
           userId = user.id;
-          // Cada cobrança aprovada cobre 1 mês a partir da data da cobrança.
-          // Calcular a partir dessa data (e não de "agora") torna o resultado
-          // igual mesmo se a notificação chegar repetida.
           const chargeDate = String(inv.debit_date || inv.date_created || new Date().toISOString()).slice(0, 10);
-          const coveredUntil = endOfDayPlusMonths(chargeDate, 1);
-          const current = user.subscription.activeUntil;
-          const activeUntil = current && current > coveredUntil ? current : coveredUntil;
-          await User.updateOne({ _id: user._id }, {
-            $set: {
-              'subscription.activeUntil': activeUntil,
-              'subscription.status': user.subscription.status === 'canceled' ? 'canceled' : 'active',
-              'subscription.invoiceUrl': ''
-            }
-          });
+          await creditPayment(user, { paymentId: String(inv.payment.id), invoiceId: String(inv.id), chargeDate });
         } else {
           console.warn(`webhook: assinatura ${inv.preapproval_id} sem usuário correspondente`);
         }
+      } else if (REVOKED_STATUSES.has(payStatus) && inv.payment?.id) {
+        userId = await revokePayment(String(inv.payment.id), payStatus);
       }
+    } else if (type === 'payment') {
+      // Estorno de pagamento (o aviso de aprovação vem por subscription_authorized_payment).
+      const pay = await mp.getPayment(dataId);
+      if (REVOKED_STATUSES.has(pay?.status)) userId = await revokePayment(String(pay.id), pay.status);
+    } else if (type === 'chargebacks' || type === 'topic_chargebacks_wh') {
+      // Contestação aberta pelo cliente no cartão.
+      const cb = await mp.getChargeback(dataId);
+      if (cb?.payment_id) userId = await revokePayment(String(cb.payment_id), 'charged_back');
     } else if (type === 'subscription_preapproval') {
       // Mudança na assinatura (autorizada, pausada, cancelada).
       const pre = await mp.getSubscription(dataId);

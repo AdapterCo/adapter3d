@@ -11,7 +11,7 @@
 //   MP_ACCESS_TOKEN     access token da aplicação (de teste ou de produção)
 //   MP_WEBHOOK_SECRET   chave secreta do webhook (Suas integrações > Webhooks)
 
-const { MercadoPagoConfig, PreApproval, Invoice, WebhookSignatureValidator } = require('mercadopago');
+const { MercadoPagoConfig, PreApproval, Invoice, Payment, Chargeback, WebhookSignatureValidator } = require('mercadopago');
 
 let client = null;
 function getClient() {
@@ -53,6 +53,12 @@ const cancelSubscription = (id) => new PreApproval(getClient()).update({ id, bod
 // Pagamento mensal de uma assinatura (authorized payment).
 const getAuthorizedPayment = (id) => new Invoice(getClient()).get({ id });
 
+// Pagamento (para detectar estorno: status refunded / charged_back).
+const getPayment = (id) => new Payment(getClient()).get({ id });
+
+// Contestação (chargeback): traz o payment_id do pagamento contestado.
+const getChargeback = (id) => new Chargeback(getClient()).get({ id });
+
 // Valida o header x-signature do webhook. Lança erro se inválido.
 function validateWebhookSignature({ xSignature, xRequestId, dataId }) {
   const secret = process.env.MP_WEBHOOK_SECRET;
@@ -62,5 +68,6 @@ function validateWebhookSignature({ xSignature, xRequestId, dataId }) {
 
 module.exports = {
   isConfigured, errorMessage,
-  createSubscription, getSubscription, cancelSubscription, getAuthorizedPayment, validateWebhookSignature
+  createSubscription, getSubscription, cancelSubscription, getAuthorizedPayment, getPayment, getChargeback,
+  validateWebhookSignature
 };
