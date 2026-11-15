@@ -22,6 +22,7 @@ import StatsTab from '../components/admin/StatsTab';
 import PlanTab from '../components/admin/PlanTab';
 import HoursTab from '../components/admin/HoursTab';
 import TablesTab from '../components/admin/TablesTab';
+import ProfileChecklist from '../components/admin/ProfileChecklist';
 
 const TABS_BY_TYPE = {
   business: ['basic', 'stats', 'links', 'review', 'theme'],
@@ -77,12 +78,15 @@ export default function Admin() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showNfc, setShowNfc] = useState(false);
+  // Última versão salva (JSON) para saber se há alterações não salvas.
+  const [savedJson, setSavedJson] = useState(null);
 
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         const response = await api.get('/auth/me');
         setData(response.data);
+        setSavedJson(JSON.stringify(response.data));
       } catch (error) {
         console.error('Error fetching data', error);
         localStorage.removeItem('token');
@@ -123,13 +127,16 @@ export default function Admin() {
   };
 
   const handleSave = async () => {
+    if (saving) return;
     setSaving(true);
+    const snapshot = JSON.stringify(data);
     try {
       // Pet: mantém `name` (usado pelo JWT/login) sincronizado com nome do pet.
       const payload = data.profileType === 'pet' && data.pet?.name
         ? { ...data, name: data.pet.name }
         : data;
       await api.put(`/users/${data.id}`, payload);
+      setSavedJson(snapshot);
       alert('Alterações salvas com sucesso!');
 
       const localUser = JSON.parse(localStorage.getItem('user') || '{}');
@@ -143,7 +150,30 @@ export default function Admin() {
     }
   };
 
+  const dirty = Boolean(data && savedJson !== null && JSON.stringify(data) !== savedJson);
+
+  // Fechar/recarregar a aba com alterações pendentes: o navegador pede confirmação.
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const onBeforeUnload = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [dirty]);
+
+  // Ctrl+S / Cmd+S salva, como em qualquer editor.
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        if (dirty) handleSave();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
   const handleLogout = () => {
+    if (dirty && !confirm('Você tem alterações não salvas. Sair mesmo assim?')) return;
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/');
@@ -187,10 +217,12 @@ export default function Admin() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center font-medium transition-colors disabled:opacity-70"
+              className={`relative px-4 py-2 text-white rounded-lg flex items-center font-medium transition-colors disabled:opacity-70 ${dirty ? 'bg-amber-600 hover:bg-amber-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+              title={dirty ? 'Há alterações não salvas (Ctrl+S)' : 'Tudo salvo'}
             >
               {saving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
               Salvar
+              {dirty && !saving && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-red-500 border-2 border-white" aria-hidden="true" />}
             </button>
           </div>
         </header>
@@ -208,6 +240,15 @@ export default function Admin() {
             </button>
           </div>
         )}
+
+        {dirty && (
+          <div className="sticky top-[73px] z-10 mx-6 mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 flex flex-wrap items-center justify-between gap-2" role="status">
+            <span>Você tem alterações não salvas.</span>
+            <button onClick={handleSave} disabled={saving} className="px-3 py-1 rounded-md bg-amber-600 text-white font-medium hover:bg-amber-700 disabled:opacity-70">Salvar agora</button>
+          </div>
+        )}
+
+        <ProfileChecklist data={data} onGo={setActiveTab} />
 
         {/* Tabs */}
         <div className="flex border-b px-6 pt-4 space-x-6 overflow-x-auto">
