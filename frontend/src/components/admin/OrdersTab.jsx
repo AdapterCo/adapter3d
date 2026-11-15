@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ShoppingBag, Ticket, Trash2 } from 'lucide-react';
-import { centsToInput, inputToCents } from './utils';
+import { centsToInput, inputToCents, newObjectId } from './utils';
 import { couponLabel, normalizeCode } from '../../utils/coupons';
 
 const DEFAULTS = { enabled: true, pickup: true, delivery: true, deliveryFee: 0, minOrder: 0, paymentMethods: ['pix', 'card', 'cash'] };
@@ -66,7 +66,7 @@ export default function OrdersTab({ data, setData }) {
               onChange={(e) => update({ deliveryFee: inputToCents(e.target.value) })}
               className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
             />
-            <p className="text-xs text-gray-500 mt-1">0,00 = entrega grátis.</p>
+            <p className="text-xs text-gray-500 mt-1">{(s.deliveryZones || []).length > 0 ? 'Não usada: a taxa vem do bairro.' : '0,00 = entrega grátis.'}</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Pedido mínimo (R$)</label>
@@ -79,6 +79,14 @@ export default function OrdersTab({ data, setData }) {
             <p className="text-xs text-gray-500 mt-1">0,00 = sem mínimo.</p>
           </div>
         </div>
+
+        {s.delivery && (
+          <DeliveryZonesEditor
+            zones={s.deliveryZones || []} freeOver={s.freeDeliveryOver || 0}
+            onZones={(deliveryZones) => update({ deliveryZones })}
+            onFreeOver={(freeDeliveryOver) => update({ freeDeliveryOver })}
+          />
+        )}
 
         <div>
           <p className="text-sm font-medium text-gray-700 mb-2">Formas de pagamento aceitas</p>
@@ -145,6 +153,36 @@ function CouponsEditor({ coupons, onChange }) {
         <button type="button" onClick={add} className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm">Adicionar cupom</button>
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
+    </div>
+  );
+}
+
+// Taxa por bairro e frete grátis acima de um valor.
+function DeliveryZonesEditor({ zones, freeOver, onZones, onFreeOver }) {
+  const input = 'px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white';
+  const setZone = (i, patch) => onZones(zones.map((z, j) => (j === i ? { ...z, ...patch } : z)));
+  return (
+    <div className="space-y-4 border rounded-lg p-4 bg-gray-50">
+      <div>
+        <p className="text-sm font-medium text-gray-700">Taxa por bairro (opcional)</p>
+        <p className="text-xs text-gray-500">Com bairros cadastrados, o cliente escolhe o dele e paga a taxa certa. Sem bairros, vale a taxa única acima.</p>
+      </div>
+      {zones.map((z, i) => (
+        <div key={z._id || i} className="flex items-center gap-2">
+          <input className={`${input} flex-grow min-w-0`} value={z.name} maxLength={60} placeholder="Bairro" onChange={(e) => setZone(i, { name: e.target.value })} />
+          <span className="text-xs text-gray-500">R$</span>
+          <input className={`${input} w-24 text-right`} inputMode="numeric" value={centsToInput(z.fee || 0)} onChange={(e) => setZone(i, { fee: inputToCents(e.target.value) })} aria-label={`Taxa de ${z.name || 'bairro'}`} />
+          <button type="button" onClick={() => onZones(zones.filter((_, j) => j !== i))} className="p-1 text-gray-400 hover:text-red-500" aria-label="Remover bairro"><Trash2 className="w-4 h-4" /></button>
+        </div>
+      ))}
+      {zones.length < 100 && (
+        <button type="button" onClick={() => onZones([...zones, { _id: newObjectId(), name: '', fee: 0 }])} className="text-sm text-blue-600 hover:underline">+ Adicionar bairro</button>
+      )}
+      <div className="border-t pt-4">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Frete grátis a partir de (R$)</label>
+        <input type="text" inputMode="numeric" className={`${input} w-40`} value={centsToInput(freeOver)} onChange={(e) => onFreeOver(inputToCents(e.target.value))} />
+        <p className="text-xs text-gray-500 mt-1">0,00 = sem frete grátis. O carrinho mostra quanto falta para o cliente ganhar o frete.</p>
+      </div>
     </div>
   );
 }

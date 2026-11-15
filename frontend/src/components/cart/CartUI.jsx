@@ -5,6 +5,7 @@ import { openStatus } from '../../utils/hours';
 import { buildPixPayload, normalizePixKey } from '../../utils/pix';
 import { applyCoupon } from '../../utils/coupons';
 import { validateSelection } from '../../utils/productOptions';
+import { deliveryQuote, zonesOf } from '../../utils/delivery';
 import { centsToBRL, inputToCents, centsToInput, buildWhatsappLink } from '../admin/utils';
 import { buildOrderMessage, PAYMENT_LABEL } from './orderMessage';
 import { track } from '../../services/track';
@@ -42,13 +43,14 @@ export default function CartUI({ cart, data, buttonStyle }) {
   const allowPickup = settings.pickup !== false;
   const allowDelivery = settings.delivery !== false;
   const methods = (settings.paymentMethods && settings.paymentMethods.length ? settings.paymentMethods : ['pix', 'card', 'cash']);
-  const deliveryFee = Number(settings.deliveryFee || 0);
+  const zones = zonesOf(settings);
   const minOrder = Number(settings.minOrder || 0);
 
   const stored = readCustomer();
   const [mode, setMode] = useState(allowDelivery ? 'delivery' : 'pickup');
   const [name, setName] = useState(stored.name || '');
   const [address, setAddress] = useState(stored.address || '');
+  const [zoneId, setZoneId] = useState(stored.zoneId || '');
   const [payment, setPayment] = useState(methods[0]);
   const [changeFor, setChangeFor] = useState('');
   const [notes, setNotes] = useState('');
@@ -64,10 +66,12 @@ export default function CartUI({ cart, data, buttonStyle }) {
   const tableMode = Boolean(cart.table);
   const effectiveMode = tableMode ? 'table'
     : mode === 'delivery' && !allowDelivery ? 'pickup' : mode === 'pickup' && !allowPickup ? 'delivery' : mode;
-  const fee = effectiveMode === 'delivery' ? deliveryFee : 0;
   // Cupom: recalculado a cada mudança no carrinho (pode deixar de valer se o subtotal cair).
   const couponResult = couponCode ? applyCoupon(settings.coupons, couponCode, cart.subtotal) : null;
   const discount = couponResult?.discount || 0;
+  // Entrega: taxa única ou do bairro escolhido; frete grátis sobre o valor já com desconto.
+  const quote = deliveryQuote(settings, zoneId, cart.subtotal - discount);
+  const fee = effectiveMode === 'delivery' ? quote.fee : 0;
   const total = cart.subtotal - discount + fee;
   // "Peça também": produtos marcados como sugestão que ainda não estão no carrinho.
   const visibleCats = new Set((data.categories || []).filter(c => c.isVisible !== false).map(c => String(c._id)));
@@ -92,6 +96,7 @@ export default function CartUI({ cart, data, buttonStyle }) {
     if (cart.lines.length === 0) return setError('Seu carrinho está vazio.');
     if (belowMin) return setError(`Pedido mínimo de ${centsToBRL(minOrder)}.`);
     if (!tableMode && !name.trim()) return setError('Informe seu nome.');
+    if (effectiveMode === 'delivery' && quote.needsZone) return setError('Escolha o seu bairro.');
     if (effectiveMode === 'delivery' && !address.trim()) return setError('Informe o endereço de entrega.');
     const change = payment === 'cash' ? inputToCents(changeFor) : 0;
     if (payment === 'cash' && change > 0 && change < total) return setError('O troco precisa ser para um valor maior que o total.');
@@ -116,11 +121,12 @@ export default function CartUI({ cart, data, buttonStyle }) {
       table: cart.table,
       customerName: name.trim(),
       customerAddress: address.trim(),
+      deliveryZone: effectiveMode === 'delivery' ? quote.zone?.name || '' : '',
       payment,
       changeFor: change,
       notes
     });
-    saveCustomer({ name: name.trim(), address: address.trim() });
+    saveCustomer({ name: name.trim(), address: address.trim(), zoneId });
     track(data, 'order', {
       value: total,
       items: cart.lines.map(l => ({ productId: String(l.productId), name: l.optionsText ? `${l.product.name} (${l.optionsText})` : l.product.name, qty: l.qty, price: l.unitPrice }))
@@ -243,6 +249,18 @@ export default function CartUI({ cart, data, buttonStyle }) {
                     placeholder={tableMode ? 'Seu nome (opcional)' : 'Seu nome'}
                     className="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-gray-300"
                   />
+                  {effectiveMode === 'delivery' && zones.length > 0 && (
+                    <select
+                      value={quote.zone ? String(quote.zone._id) : ''} onChange={(e) => setZoneId(e.target.value)}
+                      aria-label="Bairro"
+                      className="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-gray-300 bg-white"
+                    >
+                      <option value="">Escolha o seu bairro</option>
+                      {zones.map(z => (
+                        <option key={z._id} value={String(z._id)}>{z.name} · {z.fee > 0 ? centsToBRL(z.fee) : 'grátis'}</option>
+                      ))}
+                    </select>
+                  )}
                   {effectiveMode === 'delivery' && (
                     <textarea
                       value={address} onChange={(e) => setAddress(e.target.value)} maxLength={250} rows={2}
@@ -320,7 +338,10 @@ export default function CartUI({ cart, data, buttonStyle }) {
                   <div className="flex justify-between"><span className="text-gray-600">Subtotal</span><span>{centsToBRL(cart.subtotal)}</span></div>
                   {discount > 0 && <div className="flex justify-between text-green-700"><span>Cupom {couponCode}</span><span>-{centsToBRL(discount)}</span></div>}
                   {effectiveMode === 'delivery' && (
-                    <div className="flex justify-between"><span className="text-gray-600">Entrega</span><span>{fee > 0 ? centsToBRL(fee) : 'Grátis'}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-600">Entrega{quote.zone ? ` · ${quote.zone.name}` : ''}</span><span>{quote.needsZone ? 'escolha o bairro' : fee > 0 ? centsToBRL(fee) : 'Grátis'}</span></div>
+                  )}
+                  {effectiveMode === 'delivery' && quote.missingForFree > 0 && (
+                    <p className="text-xs text-green-700">Faltam {centsToBRL(quote.missingForFree)} para ganhar frete grátis.</p>
                   )}
                   <div className="flex justify-between text-base font-bold pt-1"><span>Total</span><span>{centsToBRL(total)}</span></div>
                   {belowMin && <p className="text-amber-700 text-xs pt-1">Pedido mínimo: {centsToBRL(minOrder)}</p>}

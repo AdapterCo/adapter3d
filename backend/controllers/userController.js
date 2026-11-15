@@ -145,6 +145,13 @@ exports.updateUser = async (req, res) => {
       }));
     }
 
+    // Bairros sem nome (linha adicionada e não preenchida) são descartados.
+    if (Array.isArray(updates.orderSettings?.deliveryZones)) {
+      updates.orderSettings.deliveryZones = updates.orderSettings.deliveryZones
+        .filter((z) => String(z?.name || '').trim())
+        .map((z) => ({ ...(OBJECT_ID_REGEX.test(String(z._id)) ? { _id: z._id } : {}), name: String(z.name).trim(), fee: Math.max(0, Math.round(Number(z.fee) || 0)) }));
+    }
+
     if (updates.slug) {
       // Pet: slug é fixo (= tagId, gravado no QR da coleira). Ignora qualquer tentativa de mudar.
       const currentUser = await User.findOne({ id }).select('profileType slug previousSlugs');

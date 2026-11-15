@@ -192,6 +192,16 @@ const userSchema = new mongoose.Schema({
     pickup: { type: Boolean, default: true },
     delivery: { type: Boolean, default: true },
     deliveryFee: { type: Number, default: 0, min: 0, max: 100000 },
+    // Taxa por bairro: quando há bairros, o cliente escolhe o dele e deliveryFee é ignorada.
+    deliveryZones: {
+      type: [{
+        name: { type: String, required: true, trim: true, maxlength: 60 },
+        fee: { type: Number, default: 0, min: 0, max: 100000 }
+      }],
+      default: [],
+      validate: { validator: (a) => a.length <= 100, message: 'Máximo de 100 bairros.' }
+    },
+    freeDeliveryOver: { type: Number, default: 0, min: 0, max: 10000000 }, // 0 = sem frete grátis
     minOrder: { type: Number, default: 0, min: 0, max: 10000000 },
     paymentMethods: {
       type: [{ type: String, enum: ['pix', 'card', 'cash'] }],
