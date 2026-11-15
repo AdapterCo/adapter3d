@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShoppingBag, Ticket, Trash2 } from 'lucide-react';
+import { ShoppingBag, Ticket, Trash2, Gift } from 'lucide-react';
 import { centsToInput, inputToCents, newObjectId } from './utils';
 import { couponLabel, normalizeCode } from '../../utils/coupons';
 
@@ -100,6 +100,8 @@ export default function OrdersTab({ data, setData }) {
         </div>
       </div>
 
+      <LoyaltyEditor loyalty={s.loyalty || {}} onChange={(loyalty) => update({ loyalty })} />
+
       <CouponsEditor coupons={s.coupons || []} onChange={(coupons) => update({ coupons })} />
 
       <p className="text-xs text-gray-500">Clique em <strong>Salvar</strong> no topo para aplicar.</p>
@@ -183,6 +185,30 @@ function DeliveryZonesEditor({ zones, freeOver, onZones, onFreeOver }) {
         <input type="text" inputMode="numeric" className={`${input} w-40`} value={centsToInput(freeOver)} onChange={(e) => onFreeOver(inputToCents(e.target.value))} />
         <p className="text-xs text-gray-500 mt-1">0,00 = sem frete grátis. O carrinho mostra quanto falta para o cliente ganhar o frete.</p>
       </div>
+    </div>
+  );
+}
+
+// Cartão fidelidade: "a cada N pedidos, ganhe X".
+function LoyaltyEditor({ loyalty, onChange }) {
+  const l = { enabled: false, goal: 10, reward: '', ...loyalty };
+  const set = (patch) => onChange({ ...l, ...patch });
+  const input = 'px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white';
+  return (
+    <div className="border-t pt-5 space-y-3">
+      <h4 className="font-semibold flex items-center gap-2"><Gift className="w-4 h-4" /> Cartão fidelidade</h4>
+      <p className="text-sm text-gray-500">O cliente que participa informa o WhatsApp no carrinho e acompanha os selos. Cada WhatsApp soma no máximo 1 selo a cada 30 minutos.</p>
+      <label className="flex items-center gap-2 text-sm font-medium">
+        <input type="checkbox" checked={l.enabled} onChange={() => set({ enabled: !l.enabled })} className="w-4 h-4" /> Ativar cartão fidelidade
+      </label>
+      <div className={`flex flex-wrap items-center gap-2 text-sm ${l.enabled ? '' : 'opacity-50 pointer-events-none'}`}>
+        <span>A cada</span>
+        <input type="number" min={2} max={50} className={`${input} w-20`} value={l.goal} onChange={(e) => set({ goal: Math.max(2, Math.min(50, Number(e.target.value) || 2)) })} aria-label="Pedidos para ganhar" />
+        <span>pedidos, o cliente ganha</span>
+        <input className={`${input} flex-grow min-w-[12rem]`} maxLength={80} placeholder="ex.: 1 açaí de 300ml" value={l.reward} onChange={(e) => set({ reward: e.target.value })} aria-label="Prêmio" />
+      </div>
+      {l.enabled && !String(l.reward || '').trim() && <p className="text-xs text-amber-700">Escreva o prêmio para o cartão aparecer no carrinho.</p>}
+      <p className="text-xs text-gray-500">Quando alguém completar o cartão, o prêmio aparece na aba <strong>Clientes</strong>. Marque "Prêmio entregue" na hora de entregar.</p>
     </div>
   );
 }

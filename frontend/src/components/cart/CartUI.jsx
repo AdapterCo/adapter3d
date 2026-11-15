@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShoppingBag, X, Minus, Plus, Trash2, MessageCircle, CheckCircle2, Copy, Star } from 'lucide-react';
+import { ShoppingBag, X, Minus, Plus, Trash2, MessageCircle, CheckCircle2, Copy, Star, Gift } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { openStatus } from '../../utils/hours';
 import { buildPixPayload, normalizePixKey } from '../../utils/pix';
@@ -55,6 +55,13 @@ export default function CartUI({ cart, data, buttonStyle }) {
   const [name, setName] = useState(stored.name || '');
   // Lista de clientes da loja: só com a caixa marcada (opt-in, LGPD). Desmarcada por padrão.
   const [optIn, setOptIn] = useState(false);
+  // Cartão fidelidade (consentimento separado). Vem marcado só se o próprio
+  // cliente já participou DESTA loja antes neste aparelho (lista por slug).
+  const loyaltyStores = Array.isArray(stored.loyaltyStores) ? stored.loyaltyStores : [];
+  const loyaltyRule = settings.loyalty?.enabled && String(settings.loyalty.reward || '').trim() ? settings.loyalty : null;
+  const [loyaltyIn, setLoyaltyIn] = useState(loyaltyStores.includes(data.slug));
+  const [card, setCard] = useState(null); // progresso do cartão devolvido pelo servidor
+  const wantsPhone = optIn || (loyaltyRule && loyaltyIn);
   const [phone, setPhone] = useState(stored.phone || '');
   const [address, setAddress] = useState(stored.address || '');
   const [zoneId, setZoneId] = useState(stored.zoneId || '');
@@ -103,7 +110,7 @@ export default function CartUI({ cart, data, buttonStyle }) {
     if (cart.lines.length === 0) return setError('Seu carrinho está vazio.');
     if (belowMin) return setError(`Pedido mínimo de ${centsToBRL(minOrder)}.`);
     if (!tableMode && !name.trim()) return setError('Informe seu nome.');
-    if (optIn && phone.replace(/\D/g, '').length < 10) return setError('Informe seu WhatsApp com DDD para receber as novidades.');
+    if (wantsPhone && phone.replace(/\D/g, '').length < 10) return setError('Informe seu WhatsApp com DDD.');
     if (effectiveMode === 'delivery' && quote.needsZone) return setError('Escolha o seu bairro.');
     if (effectiveMode === 'delivery' && !address.trim()) return setError('Informe o endereço de entrega.');
     const change = payment === 'cash' ? inputToCents(changeFor) : 0;
@@ -134,10 +141,15 @@ export default function CartUI({ cart, data, buttonStyle }) {
       changeFor: change,
       notes
     });
-    saveCustomer({ name: name.trim(), address: address.trim(), zoneId, phone: optIn ? phone.trim() : stored.phone || '' });
-    if (optIn && !data._preview && data.slug) {
-      // Não bloqueia nem falha o pedido: ele já vai para o WhatsApp.
-      api.post('/customers', { slug: data.slug, name: name.trim(), phone: phone.trim(), consent: true, total }).catch(() => {});
+    const joinLoyalty = Boolean(loyaltyRule && loyaltyIn);
+    saveCustomer({ name: name.trim(), address: address.trim(), zoneId, phone: wantsPhone ? phone.trim() : stored.phone || '', loyaltyStores: !loyaltyRule ? loyaltyStores : joinLoyalty ? [...new Set([...loyaltyStores, data.slug])].slice(-50) : loyaltyStores.filter(s => s !== data.slug) });
+    setCard(null);
+    if (wantsPhone && !data._preview && data.slug) {
+      // Não bloqueia nem falha o pedido: ele já vai para o WhatsApp. Com
+      // fidelidade, a resposta traz o progresso do cartão para a tela final.
+      api.post('/customers', { slug: data.slug, name: name.trim(), phone: phone.trim(), consent: optIn, loyalty: joinLoyalty, total })
+        .then(res => { if (res.data?.loyalty) setCard(res.data.loyalty); })
+        .catch(() => {});
     }
     track(data, 'order', {
       value: total,
@@ -156,6 +168,7 @@ export default function CartUI({ cart, data, buttonStyle }) {
 
   const startNew = () => {
     cart.clear();
+    setCard(null);
     setCouponCode('');
     setCouponInput('');
     setNotes('');
@@ -206,6 +219,37 @@ export default function CartUI({ cart, data, buttonStyle }) {
                       <Copy className="w-4 h-4" /> {pixCopied ? 'Código copiado!' : 'Copiar Pix copia e cola'}
                     </button>
                     <p className="text-xs text-gray-500 text-center">Abra o app do seu banco, escolha Pix copia e cola e cole o código. O valor já vem preenchido.</p>
+                  </div>
+                )}
+                {card && (
+                  <div className="border rounded-xl p-4 space-y-2 bg-amber-50 border-amber-200 text-left">
+                    {card.earned ? (
+                      <>
+                        <p className="font-bold text-gray-900 text-center">🎉 Você completou o cartão fidelidade!</p>
+                        <p className="text-sm text-gray-700 text-center">Seu prêmio: <strong>{card.reward}</strong></p>
+                        <a
+                          href={buildWhatsappLink(data.whatsapp, `Olá! Completei o cartão fidelidade e ganhei: ${card.reward}${order?.ref ? ` (pedido #${order.ref})` : ''}.`)}
+                          target="_blank" rel="noopener noreferrer" data-track="loyalty_claim"
+                          className="w-full flex items-center justify-center gap-2 p-3 rounded-xl font-semibold" style={buttonStyle}
+                        >
+                          <Gift className="w-4 h-4" /> Avisar a loja que ganhei
+                        </a>
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-semibold text-gray-900 flex items-center gap-1.5"><Gift className="w-4 h-4 text-amber-600" /> Cartão fidelidade · {card.stamps} de {card.goal}</p>
+                        <div className="flex flex-wrap gap-1.5" aria-hidden="true">
+                          {Array.from({ length: card.goal }, (_, i) => (
+                            <span key={i} className={`w-5 h-5 rounded-full border-2 ${i < card.stamps ? 'bg-amber-500 border-amber-500' : 'border-amber-300 bg-white'}`} />
+                          ))}
+                        </div>
+                        <p className="text-sm text-gray-700">Faltam <strong>{card.goal - card.stamps}</strong> pedido(s) para ganhar <strong>{card.reward}</strong>.</p>
+                        {!card.stamped && <p className="text-xs text-gray-500">Este pedido não somou selo: conta no máximo 1 pedido a cada 30 minutos.</p>}
+                      </>
+                    )}
+                    {card.rewardsPending > (card.earned ? 1 : 0) && (
+                      <p className="text-xs text-amber-800">Você tem {card.rewardsPending} prêmio(s) para retirar. É só avisar a loja.</p>
+                    )}
                   </div>
                 )}
                 {reviewUrl && (
@@ -276,18 +320,24 @@ export default function CartUI({ cart, data, buttonStyle }) {
                     placeholder={tableMode ? 'Seu nome (opcional)' : 'Seu nome'}
                     className="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-gray-300"
                   />
+                  {loyaltyRule && (
+                    <label className="flex items-start gap-2 text-sm text-gray-800 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                      <input type="checkbox" checked={loyaltyIn} onChange={(e) => setLoyaltyIn(e.target.checked)} className="w-4 h-4 mt-0.5" />
+                      <span><Gift className="inline w-4 h-4 text-amber-600 -mt-0.5" /> <strong>Cartão fidelidade:</strong> a cada {loyaltyRule.goal} pedidos, ganhe <strong>{loyaltyRule.reward}</strong>. Quero participar.</span>
+                    </label>
+                  )}
                   <label className="flex items-start gap-2 text-sm text-gray-700">
                     <input type="checkbox" checked={optIn} onChange={(e) => setOptIn(e.target.checked)} className="w-4 h-4 mt-0.5" />
                     <span>Quero receber novidades e promoções{data.name ? <> de <strong>{data.name}</strong></> : ''} pelo WhatsApp.</span>
                   </label>
-                  {optIn && (
+                  {wantsPhone && (
                     <div>
                       <input
                         value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={20}
                         type="tel" inputMode="tel" autoComplete="tel" placeholder="Seu WhatsApp com DDD"
                         className="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-gray-300"
                       />
-                      <p className="text-xs text-gray-500 mt-1">A loja guarda seu nome e WhatsApp só para isso. Peça a remoção quando quiser. <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="underline">Privacidade</a></p>
+                      <p className="text-xs text-gray-500 mt-1">A loja guarda seu nome e WhatsApp só para o que você marcou acima. Peça a remoção quando quiser. <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="underline">Privacidade</a></p>
                     </div>
                   )}
                   {effectiveMode === 'delivery' && zones.length > 0 && (

@@ -95,6 +95,7 @@ router.post('/customers', rateLimit({
 }), customerController.register);
 router.get('/customers', auth, customerController.list);
 router.delete('/customers/:id', auth, customerController.remove);
+router.post('/customers/:id/redeem', auth, customerController.redeem);
 
 // Assinaturas (cardápio/vitrine) via Mercado Pago.
 router.get('/billing/prices', billingController.prices);

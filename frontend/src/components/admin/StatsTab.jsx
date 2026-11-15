@@ -23,6 +23,7 @@ const CLICK_LABEL = {
   directions_99: 'Como chegar · 99',
   share: 'Compartilhar',
   share_product: 'Compartilhar produto',
+  loyalty_claim: 'Fidelidade · avisou prêmio',
   link: 'Link'
 };
 

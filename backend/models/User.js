@@ -202,6 +202,12 @@ const userSchema = new mongoose.Schema({
       validate: { validator: (a) => a.length <= 100, message: 'Máximo de 100 bairros.' }
     },
     freeDeliveryOver: { type: Number, default: 0, min: 0, max: 10000000 }, // 0 = sem frete grátis
+    // Cartão fidelidade: a cada `goal` pedidos, o cliente ganha `reward`.
+    loyalty: {
+      enabled: { type: Boolean, default: false },
+      goal: { type: Number, default: 10, min: 2, max: 50 },
+      reward: { type: String, default: '', trim: true, maxlength: 80 }
+    },
     minOrder: { type: Number, default: 0, min: 0, max: 10000000 },
     paymentMethods: {
       type: [{ type: String, enum: ['pix', 'card', 'cash'] }],
