@@ -3,10 +3,10 @@
 // páginas mostram um aviso de rascunho.
 export const COMPANY = {
   brand: 'Adapter Cards',
-  legalName: '[PREENCHER: razão social ou nome completo]',
-  document: '[PREENCHER: CNPJ ou CPF]',
-  email: '[PREENCHER: e-mail de contato/privacidade]',
-  city: '[PREENCHER: cidade/UF do foro]',
+  legalName: 'Daniel Mesquita dos Santos',
+  document: '09397729900',
+  email: 'contato@adapterco.com.br',
+  city: 'Rio de Janeiro/RJ',
   updatedAt: '15/11/2026'
 };
 
