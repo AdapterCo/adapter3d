@@ -66,6 +66,13 @@ router.get('/users/tag/:id', rateLimit({
   message: 'Muitas requisições. Tente novamente em instantes.'
 }), userController.getUserByTagId);
 
+// Cupom digitado no carrinho (os códigos não vão no perfil público).
+// Limite baixo: impede testar códigos em massa.
+router.post('/coupons/check', rateLimit({
+  windowMs: 15 * 60 * 1000, max: 20,
+  message: 'Muitas tentativas de cupom. Aguarde alguns minutos.'
+}), userController.checkCoupon);
+
 // Protected User Update Route
 router.put('/users/:id', auth, userController.updateUser);
 

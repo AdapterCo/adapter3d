@@ -73,6 +73,8 @@ export default function CartUI({ cart, data, buttonStyle }) {
   const [pixCopied, setPixCopied] = useState(false);
   const [couponInput, setCouponInput] = useState('');
   const [couponCode, setCouponCode] = useState(''); // cupom aplicado
+  const [appliedCoupon, setAppliedCoupon] = useState(null); // dados do cupom conferido no servidor
+  const [couponBusy, setCouponBusy] = useState(false);
 
   if (!cart.enabled) return null;
 
@@ -81,7 +83,11 @@ export default function CartUI({ cart, data, buttonStyle }) {
   const effectiveMode = tableMode ? 'table'
     : mode === 'delivery' && !allowDelivery ? 'pickup' : mode === 'pickup' && !allowPickup ? 'delivery' : mode;
   // Cupom: recalculado a cada mudança no carrinho (pode deixar de valer se o subtotal cair).
-  const couponResult = couponCode ? applyCoupon(settings.coupons, couponCode, cart.subtotal) : null;
+  // O perfil público não traz os códigos (só hasCoupons); a prévia do painel
+  // traz a lista local. O desconto é sempre calculado aqui sobre o subtotal.
+  const localCoupons = Array.isArray(settings.coupons) ? settings.coupons : null;
+  const couponsOn = settings.hasCoupons || (localCoupons || []).some(c => c.active !== false);
+  const couponResult = couponCode ? applyCoupon(appliedCoupon ? [appliedCoupon] : localCoupons, couponCode, cart.subtotal) : null;
   const discount = couponResult?.discount || 0;
   // Entrega: taxa única ou do bairro escolhido; frete grátis sobre o valor já com desconto.
   const quote = deliveryQuote(settings, zoneId, cart.subtotal - discount);
@@ -92,10 +98,25 @@ export default function CartUI({ cart, data, buttonStyle }) {
   const suggestions = (data.products || [])
     .filter(p => p.upsell && p.isVisible !== false && !p.soldOut && !validateSelection(p, []) && (!p.categoryId || visibleCats.has(String(p.categoryId))) && cart.qtyOf(p._id) === 0)
     .slice(0, 3);
-  const applyTyped = () => {
-    const r = applyCoupon(settings.coupons, couponInput, cart.subtotal);
+  const applyTyped = async () => {
+    if (!couponInput.trim()) { setError('Digite o código do cupom.'); return; }
+    let source = localCoupons;
+    let found = null;
+    if (!localCoupons) {
+      setCouponBusy(true);
+      try {
+        const res = await api.post('/coupons/check', { slug: data.slug, code: couponInput });
+        found = res.data.coupon;
+        source = [found];
+      } catch (err) {
+        setError(err.response?.data?.message || 'Cupom inválido ou expirado.');
+        return;
+      } finally { setCouponBusy(false); }
+    }
+    const r = applyCoupon(source, couponInput, cart.subtotal);
     if (r.error) { setError(r.error); return; }
     setError('');
+    setAppliedCoupon(found);
     setCouponCode(r.coupon.code);
   };
   const belowMin = minOrder > 0 && cart.subtotal < minOrder;
@@ -171,6 +192,7 @@ export default function CartUI({ cart, data, buttonStyle }) {
     setCard(null);
     setCouponCode('');
     setCouponInput('');
+    setAppliedCoupon(null);
     setNotes('');
     setChangeFor('');
     setSent(false);
@@ -410,17 +432,17 @@ export default function CartUI({ cart, data, buttonStyle }) {
                 )}
 
                 {/* Cupom */}
-                {(settings.coupons || []).some(c => c.active !== false) && (
+                {couponsOn && (
                   couponCode && discount > 0 ? (
                     <div className="flex items-center justify-between text-sm bg-green-50 border border-green-200 text-green-800 rounded-xl px-3 py-2">
                       <span>Cupom <strong>{couponCode}</strong> aplicado: -{centsToBRL(discount)}</span>
-                      <button type="button" onClick={() => { setCouponCode(''); setCouponInput(''); }} className="underline">remover</button>
+                      <button type="button" onClick={() => { setCouponCode(''); setCouponInput(''); setAppliedCoupon(null); }} className="underline">remover</button>
                     </div>
                   ) : (
                     <div className="flex gap-2">
                       <input value={couponInput} onChange={(e) => setCouponInput(e.target.value)} placeholder="Cupom de desconto" maxLength={20}
                         className="flex-grow px-4 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-gray-300 uppercase" />
-                      <button type="button" onClick={applyTyped} className="px-4 py-2 rounded-xl border font-medium text-gray-700">Aplicar</button>
+                      <button type="button" onClick={applyTyped} disabled={couponBusy} className="px-4 py-2 rounded-xl border font-medium text-gray-700 disabled:opacity-60">{couponBusy ? '...' : 'Aplicar'}</button>
                     </div>
                   )
                 )}

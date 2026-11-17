@@ -29,10 +29,43 @@ exports.getUserBySlug = async (req, res) => {
     delete data.shipping;
     delete data.signupSource;
     delete data.termsAcceptedAt;
+    delete data.tokenVersion;
+    // Códigos de cupom não vão para o público (o lojista pode distribuí-los
+    // só para alguns clientes). O carrinho só precisa saber se existe algum
+    // ativo; o código digitado é conferido em POST /api/coupons/check.
+    if (data.orderSettings) {
+      data.orderSettings.hasCoupons = (data.orderSettings.coupons || []).some(c => c.active !== false && c.code);
+      delete data.orderSettings.coupons;
+    }
     res.json(data);
   } catch (error) {
     console.error('Error in getUserBySlug:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const normalizeCouponCode = (code) => String(code || '').trim().toUpperCase().replace(/\s+/g, '');
+
+// POST /api/coupons/check { slug, code } — confere um cupom digitado no
+// carrinho. Devolve só aquele cupom (se existir e estiver ativo), nunca a lista.
+exports.checkCoupon = async (req, res) => {
+  try {
+    const slug = typeof req.body?.slug === 'string' ? req.body.slug.toLowerCase().slice(0, 64) : '';
+    const code = typeof req.body?.code === 'string' ? normalizeCouponCode(req.body.code).slice(0, 20) : '';
+    if (!slug || !code) return res.status(400).json({ message: 'Digite o código do cupom.' });
+
+    const user = await User.findOne({ slug })
+      .select('profileType signupSource subscription orderSettings.coupons').lean();
+    if (!user || !isProfileOnline(user)) return res.status(404).json({ message: 'Cupom inválido ou expirado.' });
+
+    const coupon = (user.orderSettings?.coupons || [])
+      .find(c => c.active !== false && normalizeCouponCode(c.code) === code);
+    if (!coupon) return res.status(404).json({ message: 'Cupom inválido ou expirado.' });
+
+    res.json({ coupon: { code: coupon.code, type: coupon.type, value: coupon.value, minOrder: coupon.minOrder || 0 } });
+  } catch (error) {
+    console.error('checkCoupon error:', error);
+    res.status(500).json({ message: 'Erro ao conferir o cupom.' });
   }
 };
 
@@ -84,8 +117,14 @@ function cleanupOrphanedImages(before, after) {
   const newUrls = collectImageUrls(after);
   for (const url of oldUrls) {
     if (newUrls.has(url)) continue;
+    // Só uploads deste app (chave no formato do buildKey) podem ser apagados.
+    const key = storage.keyFromUrl(url);
+    if (!key) continue;
+    // Referência conferida pela CHAVE, não pela URL inteira: protege também
+    // perfis que guardam a mesma imagem com outro prefixo (ex.: domínio antigo).
+    const endsWithKey = { $regex: `/${key.replace(/[.]/g, '\\.')}$` };
     User.exists({
-      $or: [{ avatar: url }, { 'theme.backgroundImage': url }, { 'products.image': url }]
+      $or: [{ avatar: endsWithKey }, { 'theme.backgroundImage': endsWithKey }, { 'products.image': endsWithKey }]
     })
       .then(stillUsed => (stillUsed ? null : storage.deleteByUrl(url)))
       .catch(err => console.warn('Falha ao deletar imagem órfã do MinIO:', url, err.message));

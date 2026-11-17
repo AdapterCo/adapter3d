@@ -41,11 +41,24 @@ async function uploadBuffer(buffer, originalName, mimetype) {
   };
 }
 
-async function deleteByUrl(url) {
-  if (!url) return;
+// Formato exato das chaves criadas por buildKey: "<ms>-<16 hex>.<ext>".
+// Só chaves assim podem ser apagadas: a URL vem do perfil do lojista (texto
+// livre), e sem essa trava daria para apagar qualquer objeto do bucket
+// ("outra-pasta/arquivo", "//chave", "x/../chave"...).
+const KEY_REGEX = /^\d{13}-[0-9a-f]{16}\.[a-z0-9]{1,10}$/;
+
+// Chave do objeto a partir da URL pública, ou null se a URL não for de um
+// upload deste app no prefixo atual.
+function keyFromUrl(url) {
+  if (typeof url !== 'string' || !url) return null;
   const prefix = MINIO_PUBLIC_URL.replace(/\/$/, '') + '/';
-  if (!url.startsWith(prefix)) return;
+  if (!url.startsWith(prefix)) return null;
   const key = url.slice(prefix.length);
+  return KEY_REGEX.test(key) ? key : null;
+}
+
+async function deleteByUrl(url) {
+  const key = keyFromUrl(url);
   if (!key) return;
   try {
     await s3.send(new DeleteObjectCommand({ Bucket: MINIO_BUCKET, Key: key }));
@@ -54,4 +67,4 @@ async function deleteByUrl(url) {
   }
 }
 
-module.exports = { uploadBuffer, deleteByUrl };
+module.exports = { uploadBuffer, deleteByUrl, keyFromUrl };

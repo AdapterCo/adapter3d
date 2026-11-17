@@ -64,6 +64,9 @@ services:
       - PLAN_PRICE_MENU_100=${PLAN_PRICE_MENU_100:-}
       - PLAN_PRICE_STOREFRONT_50=${PLAN_PRICE_STOREFRONT_50:-}
       - PLAN_PRICE_STOREFRONT_100=${PLAN_PRICE_STOREFRONT_100:-}
+      # Segredo que o Traefik envia ao backend (X-Adapter-Proxy): só com ele o
+      # X-Forwarded-For é aceito. Gere com: openssl rand -hex 32
+      - PROXY_SECRET=${PROXY_SECRET:-}
     networks:
       - adapter3d_internal
       - traefik9
@@ -77,6 +80,9 @@ services:
       - "traefik.http.routers.adapter3d-api-https.tls=true"
       - "traefik.http.routers.adapter3d-api-https.tls.certresolver=letsencrypt"
       - "traefik.http.routers.adapter3d-api-https.service=adapter3d-api-service"
+      - "traefik.http.routers.adapter3d-api-https.middlewares=adapter3d-proxy-secret"
+      # Marca os pedidos que passaram pelo Traefik (ver PROXY_SECRET no backend).
+      - "traefik.http.middlewares.adapter3d-proxy-secret.headers.customrequestheaders.X-Adapter-Proxy=${PROXY_SECRET:-}"
 
       # Router HTTP — redireciona pra HTTPS
       - "traefik.http.routers.adapter3d-api-http.rule=Host(`${DOMAIN}`) && PathPrefix(`/api`)"

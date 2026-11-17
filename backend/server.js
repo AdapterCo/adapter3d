@@ -31,6 +31,28 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.set('trust proxy', 1); // confiar no X-Forwarded-* do Traefik
+
+// A rede traefik9 é compartilhada com outros projetos: um contêiner vizinho
+// pode chamar o backend direto e inventar o X-Forwarded-For, burlando os
+// limites por IP (login, cadastro...). Com PROXY_SECRET definido, o Traefik
+// injeta o cabeçalho X-Adapter-Proxy (ver docker-compose.yml) e só pedidos
+// com ele têm o X-Forwarded-For aceito; os demais contam pelo IP de conexão.
+const PROXY_SECRET = process.env.PROXY_SECRET || '';
+if (PROXY_SECRET) {
+  const crypto = require('crypto');
+  const digest = (v) => crypto.createHash('sha256').update(String(v)).digest();
+  const expected = digest(PROXY_SECRET);
+  app.use((req, res, next) => {
+    const got = req.headers['x-adapter-proxy'];
+    delete req.headers['x-adapter-proxy'];
+    if (typeof got !== 'string' || !crypto.timingSafeEqual(digest(got), expected)) {
+      delete req.headers['x-forwarded-for'];
+    }
+    next();
+  });
+} else {
+  console.warn('AVISO: PROXY_SECRET não definido. Contêineres na rede traefik9 podem falsificar o IP (X-Forwarded-For) e burlar os limites por IP.');
+}
 app.use(cors());
 app.use(express.json());
 
