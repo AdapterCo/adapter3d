@@ -21,6 +21,11 @@ for (const key of REQUIRED_ENV) {
     process.exit(1);
   }
 }
+// A chave de admin dá acesso total ao /gestao e é testável pela internet:
+// curta demais pode ser adivinhada. Não derruba o servidor, só avisa.
+if (process.env.ADMIN_KEY.length < 32) {
+  console.warn('AVISO: ADMIN_KEY tem menos de 32 caracteres. Gere uma chave forte, ex.: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;

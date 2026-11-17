@@ -42,7 +42,7 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Credenciais inválidas' });
     }
 
-    const payload = { user: { id: user.id, slug: user.slug } };
+    const payload = { user: { id: user.id, slug: user.slug, v: user.tokenVersion || 0 } };
 
     jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' }, (err, token) => {
       if (err) throw err;
@@ -167,7 +167,7 @@ exports.register = async (req, res) => {
     // Vincula a tag ao usuário criado (pra rastrear quem ativou cada tag)
     await Tag.findOneAndUpdate({ id }, { activatedBy: user._id });
 
-    const payload = { user: { id: user.id, slug: user.slug } };
+    const payload = { user: { id: user.id, slug: user.slug, v: user.tokenVersion || 0 } };
     jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' }, (err, token) => {
       if (err) throw err;
       res.json({ token, user: { id: user.id, slug: user.slug, email: user.email, name: user.name, profileType: user.profileType } });
@@ -276,10 +276,11 @@ exports.resetPassword = async (req, res) => {
 
     const salt = await bcrypt.genSalt(10);
     const hashed = await bcrypt.hash(password, salt);
-    // Token de uso único: removido junto com a troca da senha.
+    // Token de uso único: removido junto com a troca da senha. tokenVersion
+    // sobe para derrubar todos os logins abertos (ex.: token roubado).
     await User.updateOne(
       { _id: user._id },
-      { $set: { password: hashed, resetPasswordHash: null, resetPasswordExpires: null } }
+      { $set: { password: hashed, resetPasswordHash: null, resetPasswordExpires: null }, $inc: { tokenVersion: 1 } }
     );
 
     res.json({ message: 'Senha alterada! Faça login com a nova senha.' });

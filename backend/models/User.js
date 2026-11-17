@@ -86,6 +86,9 @@ const userSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true }, // The Tag ID
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
+  // Versão dos tokens de login: sobe ao redefinir a senha, invalidando os
+  // tokens emitidos antes (o authMiddleware compara com o campo "v" do token).
+  tokenVersion: { type: Number, default: 0 },
   // Recuperação de senha: guardamos só o hash (SHA-256) do token enviado por
   // e-mail. select:false = nunca sai em consultas sem pedir explicitamente.
   resetPasswordHash: { type: String, default: null, select: false },

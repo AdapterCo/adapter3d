@@ -12,7 +12,7 @@ const {
 
 const PLAN_LABEL = { menu: 'Cardápio digital', storefront: 'Vitrine digital' };
 
-const signToken = (user) => jwt.sign({ user: { id: user.id, slug: user.slug } }, process.env.JWT_SECRET, { expiresIn: '7d' });
+const signToken = (user) => jwt.sign({ user: { id: user.id, slug: user.slug, v: user.tokenVersion || 0 } }, process.env.JWT_SECRET, { expiresIn: '7d' });
 const publicUser = (u) => ({ id: u.id, slug: u.slug, email: u.email, name: u.name, profileType: u.profileType });
 const appUrl = () => (process.env.APP_URL || '').replace(/\/$/, '');
 
