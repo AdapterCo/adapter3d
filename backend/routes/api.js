@@ -15,9 +15,22 @@ const adminAuth = require('../middleware/adminAuth');
 const rateLimit = require('../middleware/rateLimit');
 
 // Uploads vão direto pro MinIO. Multer só parseia o multipart em memória.
+// Sem limites de campos/partes, o multer aceitaria campos de texto sem fim
+// (1 MB cada) guardados na memória do processo compartilhado por todas as lojas.
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 } // 5 MB por arquivo
+  limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 10, fieldSize: 10 * 1024, parts: 12 }
+});
+
+// Erros do multer viram resposta clara (em vez do erro genérico do Express).
+const uploadImage = (req, res, next) => upload.single('image')(req, res, (err) => {
+  if (!err) return next();
+  if (err instanceof multer.MulterError) {
+    return err.code === 'LIMIT_FILE_SIZE'
+      ? res.status(413).json({ message: 'Imagem muito grande (máximo 5 MB).' })
+      : res.status(400).json({ message: 'Envio inválido. Envie uma única imagem.' });
+  }
+  next(err);
 });
 
 // Limites por IP contra força bruta de senha e enumeração de IDs de tag.
@@ -77,7 +90,7 @@ router.post('/coupons/check', rateLimit({
 router.put('/users/:id', auth, userController.updateUser);
 
 // Upload Route (auth-protected — só usuários logados podem subir arquivos)
-router.post('/upload', auth, upload.single('image'), userController.uploadImage);
+router.post('/upload', auth, uploadImage, userController.uploadImage);
 
 // Avaliação Google: resolve link do Maps → link direto de avaliação (serviço externo).
 // Limitado para não sobrecarregar o serviço de terceiros.

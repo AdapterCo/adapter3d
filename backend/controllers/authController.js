@@ -15,6 +15,7 @@ const {
   normalizeSlug,
   isValidSlug
 } = require('../utils/validation');
+const { slugTakenByTag } = require('../utils/tagSlug');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -146,7 +147,8 @@ exports.register = async (req, res) => {
     if (await User.findOne({ email }).collation(EMAIL_COLLATION)) {
       throw { _userError: 'Este email já está em uso.' };
     }
-    if (await User.findOne({ $or: [{ slug: resolvedSlug }, { previousSlugs: resolvedSlug }] })) {
+    if (await User.findOne({ $or: [{ slug: resolvedSlug }, { previousSlugs: resolvedSlug }] })
+      || (resolvedType !== 'pet' && await slugTakenByTag(resolvedSlug, { ownTagId: id }))) {
       throw { _userError: 'Este complemento (URL) já está em uso.' };
     }
 

@@ -3,6 +3,7 @@ const Tag = require('../models/Tag');
 const storage = require('../services/storage');
 const { isProfileOnline, isPaidType, productLimit } = require('../utils/plans');
 const { normalizeSlug, isValidSlug } = require('../utils/validation');
+const { slugTakenByTag } = require('../utils/tagSlug');
 const { optimizeImage } = require('../services/imageProcessor');
 
 // Get User by Slug (Public Card View)
@@ -202,7 +203,7 @@ exports.updateUser = async (req, res) => {
 
     if (updates.slug) {
       // Pet: slug é fixo (= tagId, gravado no QR da coleira). Ignora qualquer tentativa de mudar.
-      const currentUser = await User.findOne({ id }).select('profileType slug previousSlugs');
+      const currentUser = await User.findOne({ id }).select('_id profileType slug previousSlugs');
       if (currentUser?.profileType === 'pet') {
         delete updates.slug;
       } else {
@@ -222,7 +223,7 @@ exports.updateUser = async (req, res) => {
             $or: [{ slug: newSlug }, { previousSlugs: newSlug }],
             id: { $ne: id }
           });
-          if (existingSlug) {
+          if (existingSlug || await slugTakenByTag(newSlug, { ownTagId: id, ownUserObjectId: currentUser?._id })) {
             return res.status(400).json({ message: 'Este link (slug) já está em uso por outro usuário.' });
           }
           // Guarda o slug antigo (até 10) para os links antigos continuarem funcionando.

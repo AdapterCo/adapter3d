@@ -9,6 +9,7 @@ const {
   MIN_PASSWORD_LENGTH, EMAIL_COLLATION, normalizeEmail, isValidEmail,
   normalizeSlug, isValidSlug, normalizeBrPhone, validateShipping
 } = require('../utils/validation');
+const { slugTakenByTag } = require('../utils/tagSlug');
 
 const PLAN_LABEL = { menu: 'Cardápio digital', storefront: 'Vitrine digital' };
 
@@ -66,11 +67,13 @@ exports.signup = async (req, res) => {
   if (shipping.error) return res.status(400).json({ message: shipping.error });
   if (planPrice(profileType, tier) === null) return res.status(400).json({ message: 'Plano indisponível. Escolha outro.' });
 
+  // Link antes do e-mail: com um link já usado (são públicos), a resposta não
+  // pode servir para testar de graça se um e-mail tem conta.
+  if (await User.findOne({ $or: [{ slug }, { previousSlugs: slug }] }).select('_id') || await slugTakenByTag(slug)) {
+    return res.status(400).json({ message: 'Este link já está em uso. Escolha outro.' });
+  }
   if (await User.findOne({ email }).collation(EMAIL_COLLATION).select('_id')) {
     return res.status(400).json({ message: 'Este e-mail já está em uso.' });
-  }
-  if (await User.findOne({ $or: [{ slug }, { previousSlugs: slug }] }).select('_id')) {
-    return res.status(400).json({ message: 'Este link já está em uso. Escolha outro.' });
   }
 
   let user;
