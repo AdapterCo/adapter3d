@@ -31,8 +31,7 @@ exports.prices = (req, res) => {
 const planReason = (user, tier) => `${PLAN_LABEL[user.profileType] || 'Assinatura'} Adapter Cards (até ${tier} produtos) - ${user.slug}`;
 
 // Cria a assinatura (preapproval pendente) no Mercado Pago e devolve o link de pagamento.
-async function startSubscription(user) {
-  const tier = productLimit(user);
+async function startSubscription(user, tier = productLimit(user)) {
   const pre = await mp.createSubscription({
     reason: planReason(user, tier),
     payerEmail: user.email,
@@ -136,6 +135,7 @@ exports.me = async (req, res) => {
       ...state,
       price: isPaidType(user.profileType) ? planPrice(user.profileType, productLimit(user)) : null,
       tier: productLimit(user),
+      pendingTier: user.subscription?.pendingTier || null,
       productCount: (user.products || []).length,
       plans: isPaidType(user.profileType) ? planOptions(user.profileType) : [],
       hasSubscription,
@@ -165,14 +165,36 @@ exports.subscribe = async (req, res) => {
       return res.status(400).json({ message: 'Você já tem uma assinatura. Use o botão de pagamento.' });
     }
 
+    // Plano escolhido ao assinar (padrão: o atual). Precisa estar à venda e
+    // caber nos produtos já cadastrados.
+    const current = productLimit(user);
+    const tier = req.body?.tier === undefined ? current : Number(req.body.tier);
+    if (normalizeTier(tier) !== tier || planPrice(user.profileType, tier) === null) {
+      return res.status(400).json({ message: 'Plano indisponível.' });
+    }
+    const count = (user.products || []).length;
+    if (count > tier) {
+      return res.status(400).json({ message: `Você tem ${count} produtos. Remova ${count - tier} para assinar o plano de até ${tier}.` });
+    }
+
     const wasActive = subscriptionState(user).active;
-    const started = await startSubscription(user);
+    const keepsOnline = wasActive && Boolean(user.subscription.activeUntil);
+    const started = await startSubscription(user, tier);
     user.subscription.subscriptionId = started.subscriptionId;
     user.subscription.invoiceUrl = started.invoiceUrl;
     if (started.customerId) user.subscription.customerId = started.customerId;
-    user.subscription.status = wasActive && user.subscription.activeUntil ? 'active' : 'pending';
+    user.subscription.status = keepsOnline ? 'active' : 'pending';
+    // Quem continua no ar enquanto o pagamento não sai (cortesia) só ganha o
+    // limite maior quando o primeiro pagamento for aprovado (creditPayment).
+    // Quem fica aguardando pagamento está fora do ar: o plano já vale.
+    if (tier > current && keepsOnline) {
+      user.subscription.pendingTier = tier;
+    } else {
+      user.subscription.tier = tier;
+      user.subscription.pendingTier = null;
+    }
     await user.save();
-    res.json({ invoiceUrl: started.invoiceUrl });
+    res.json({ invoiceUrl: started.invoiceUrl, tier: productLimit(user), pendingTier: user.subscription.pendingTier });
   } catch (err) {
     console.error('billing subscribe error:', mp.errorMessage(err));
     res.status(502).json({ message: 'Não foi possível criar a assinatura agora. Tente novamente.' });
@@ -199,11 +221,17 @@ exports.changePlan = async (req, res) => {
 
     const subId = user.subscription?.subscriptionId;
     const live = Boolean(subId) && user.subscription.status !== 'canceled';
+    // Sem assinatura ativa no Mercado Pago (conta antiga, cortesia ou cancelada)
+    // não há cobrança para atualizar: subir de plano aqui liberaria mais
+    // produtos de graça. Só pode descer; para subir, precisa assinar.
+    if (!live && tier > productLimit(user)) {
+      return res.status(400).json({ message: 'Para aumentar o plano é preciso ter uma assinatura ativa. Assine pela aba Plano e escolha a quantidade de produtos.' });
+    }
     if (live) {
       if (!mp.isConfigured()) return res.status(503).json({ message: 'Troca de plano indisponível no momento.' });
       await mp.updateSubscriptionAmount(subId, { amount: price, reason: planReason(user, tier) });
     }
-    await User.updateOne({ _id: user._id }, { $set: { 'subscription.tier': tier } });
+    await User.updateOne({ _id: user._id }, { $set: { 'subscription.tier': tier, 'subscription.pendingTier': null } });
     const brl = price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     res.json({
       tier,
@@ -259,14 +287,18 @@ async function creditPayment(user, { paymentId, invoiceId, chargeDate }) {
   const fromPayments = coverageFrom(kept);
   const current = user.subscription.activeUntil;
   const activeUntil = current && fromPayments && current > fromPayments ? current : fromPayments;
-  await User.updateOne({ _id: user._id }, {
-    $set: {
-      'subscription.payments': kept,
-      'subscription.activeUntil': activeUntil,
-      'subscription.status': user.subscription.status === 'canceled' ? 'canceled' : 'active',
-      'subscription.invoiceUrl': ''
-    }
-  });
+  const set = {
+    'subscription.payments': kept,
+    'subscription.activeUntil': activeUntil,
+    'subscription.status': user.subscription.status === 'canceled' ? 'canceled' : 'active',
+    'subscription.invoiceUrl': ''
+  };
+  // Plano maior escolhido na assinatura: passa a valer com o pagamento aprovado.
+  if (user.subscription.pendingTier) {
+    set['subscription.tier'] = user.subscription.pendingTier;
+    set['subscription.pendingTier'] = null;
+  }
+  await User.updateOne({ _id: user._id }, { $set: set });
 }
 
 // Estorno ou contestação de um pagamento: desfaz o mês que ele liberou (o

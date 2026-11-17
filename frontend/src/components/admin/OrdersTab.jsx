@@ -197,7 +197,7 @@ function LoyaltyEditor({ loyalty, onChange }) {
   return (
     <div className="border-t pt-5 space-y-3">
       <h4 className="font-semibold flex items-center gap-2"><Gift className="w-4 h-4" /> Cartão fidelidade</h4>
-      <p className="text-sm text-gray-500">O cliente que participa informa o WhatsApp no carrinho e acompanha os selos. Cada WhatsApp soma no máximo 1 selo a cada 30 minutos.</p>
+      <p className="text-sm text-gray-500">O cliente que participa informa o WhatsApp no carrinho e acompanha os selos. O selo só entra quando você confirma, na aba Clientes, que recebeu o pedido no WhatsApp.</p>
       <label className="flex items-center gap-2 text-sm font-medium">
         <input type="checkbox" checked={l.enabled} onChange={() => set({ enabled: !l.enabled })} className="w-4 h-4" /> Ativar cartão fidelidade
       </label>

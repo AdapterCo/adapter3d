@@ -18,6 +18,10 @@ const {
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
+// Código de tag vindo do corpo da requisição: precisa ser texto curto.
+// Barra objetos/arrays que o Mongo interpretaria como operadores ($regex, $gt...).
+const isTagId = (v) => typeof v === 'string' && v.length <= 64;
+
 // Login User
 exports.login = async (req, res) => {
   try {
@@ -53,8 +57,11 @@ exports.login = async (req, res) => {
 // Validate Tag ID
 exports.validateTag = async (req, res) => {
   try {
-    const { id } = req.body;
+    const { id } = req.body || {};
     if (!id) return res.status(400).json({ message: 'ID da Tag é obrigatório' });
+    // Só texto: um objeto como {"$regex": "..."} viraria operador na consulta
+    // e permitiria descobrir códigos de tags ainda não ativadas.
+    if (!isTagId(id)) return res.status(400).json({ message: 'Tag inválida. Verifique o código impresso no seu cartão.' });
 
     const tag = await Tag.findOne({ id });
     if (!tag) {
@@ -84,6 +91,9 @@ exports.register = async (req, res) => {
 
     if (!id || !email || !password) {
       return res.status(400).json({ message: 'Todos os campos são obrigatórios.' });
+    }
+    if (!isTagId(id)) {
+      return res.status(400).json({ message: 'Tag inválida ou já ativada.' });
     }
     if (req.body?.acceptTerms !== true) {
       return res.status(400).json({ message: 'É preciso aceitar os Termos de Uso e a Política de Privacidade.' });

@@ -15,7 +15,13 @@ const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString('pt-BR') : '');
 
 // CSV com ";" e BOM: abre certo no Excel em português.
 function toCsv(customers) {
-  const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  // Nome vem do cliente: começar com = + - @ (ou tab/CR) faria o Excel tratar
+  // como fórmula. O apóstrofo na frente força texto.
+  const cell = (v) => {
+    let s = String(v ?? '');
+    if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+    return `"${s.replace(/"/g, '""')}"`;
+  };
   const head = ['Nome', 'WhatsApp', 'Pedidos', 'Total (R$)', 'Primeiro pedido', 'Último pedido', 'Autorizou em'];
   const rows = customers.map(c => [
     c.name, formatPhone(c.phone), c.orders, (Number(c.totalSpent || 0) / 100).toFixed(2).replace('.', ','),
@@ -49,6 +55,30 @@ export default function CustomersTab({ data }) {
   }, [customers, query]);
 
   const marketingList = filtered.filter(c => c.marketing !== false);
+  const pendingCount = (customers || []).filter(c => c.pendingOrders?.length).length;
+
+  // Pedido enviado pelo carrinho: só vale (selo, novidades, total) depois que
+  // o lojista confirma que recebeu no WhatsApp daquele número.
+  const confirmOrder = async (c) => {
+    try {
+      const res = await api.post(`/customers/${c._id}/confirm`);
+      setCustomers(list => list.map(x => (x._id === c._id ? { ...x, ...res.data.customer } : x)));
+      if (res.data.earned) alert(`${res.data.customer.name || formatPhone(c.phone)} completou o cartão fidelidade! Entregue o prêmio e marque "Prêmio entregue".`);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Erro ao confirmar o pedido.');
+      setReload(n => n + 1);
+    }
+  };
+
+  const discardOrders = async (c) => {
+    if (!confirm(`Descartar ${c.pendingOrders.length > 1 ? 'os pedidos' : 'o pedido'} de ${formatPhone(c.phone)}? Use quando não recebeu esse pedido no WhatsApp.`)) return;
+    try {
+      const res = await api.post(`/customers/${c._id}/discard`);
+      setCustomers(list => (res.data.removed ? list.filter(x => x._id !== c._id) : list.map(x => (x._id === c._id ? { ...x, pendingOrders: [] } : x))));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Erro ao descartar o pedido.');
+    }
+  };
 
   const exportCsv = () => {
     const blob = new Blob([toCsv(marketingList)], { type: 'text/csv;charset=utf-8' });
@@ -96,6 +126,12 @@ export default function CustomersTab({ data }) {
         O CSV leva só quem aceitou novidades: use para avisar de promoções pelo WhatsApp. Se alguém pedir para sair, remova pela lixeira.
       </p>
 
+      {pendingCount > 0 && (
+        <p className="text-sm bg-amber-50 border border-amber-200 text-amber-900 rounded-lg px-3 py-2">
+          <strong>{pendingCount}</strong> cliente(s) com pedido a confirmar. Confirme só os pedidos que chegaram no seu WhatsApp: é isso que libera o selo do cartão fidelidade e o aceite de novidades.
+        </p>
+      )}
+
       {error && <p className="text-sm text-red-600">{error}</p>}
       {!customers && !error && <p className="text-sm text-gray-500">Carregando…</p>}
 
@@ -123,6 +159,22 @@ export default function CustomersTab({ data }) {
                     {c.loyalty && <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 text-xs flex items-center gap-1"><Gift className="w-3 h-3" /> {c.stamps || 0}/{goal} selos</span>}
                     {c.rewardsRedeemed > 0 && <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 text-xs">{c.rewardsRedeemed} prêmio(s) entregue(s)</span>}
                   </div>
+                  {c.pendingOrders?.length > 0 && (() => {
+                    const p = c.pendingOrders[0];
+                    return (
+                      <div className="mt-2 p-2 rounded-lg bg-amber-50 border border-amber-200 space-y-1.5">
+                        <p className="text-xs text-amber-900">
+                          <strong>Pedido a confirmar</strong>{c.pendingOrders.length > 1 ? ` (1 de ${c.pendingOrders.length})` : ''}: {new Date(p.at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })} · {centsToBRL(p.total)}
+                          {p.name ? ` · ${p.name}` : ''}
+                          {p.loyalty ? ' · selo' : ''}{p.marketing ? ' · aceita novidades' : ''}
+                        </p>
+                        <div className="flex gap-2">
+                          <button onClick={() => confirmOrder(c)} className="px-2.5 py-1 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700">Recebi este pedido</button>
+                          <button onClick={() => discardOrders(c)} className="px-2.5 py-1 rounded-lg border text-xs text-gray-700 hover:bg-white">Não recebi</button>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
                 {c.rewardsPending > 0 && (
                   <button onClick={() => redeem(c)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500 text-white text-xs font-semibold hover:bg-amber-600" title="Marque quando entregar o prêmio">

@@ -99,6 +99,9 @@ const userSchema = new mongoose.Schema({
   subscription: {
     status: { type: String, enum: ['none', 'pending', 'active', 'canceled'], default: 'none' },
     tier: { type: Number, enum: [30, 50, 100], default: 30 }, // plano: máximo de produtos
+    // Plano maior escolhido ao assinar por quem já estava no ar (cortesia/conta
+    // antiga): só vira "tier" quando o primeiro pagamento for aprovado.
+    pendingTier: { type: Number, enum: [30, 50, 100, null], default: null },
     activeUntil: { type: Date, default: null },
     customerId: { type: String, default: '' },      // payer_id no Mercado Pago
     subscriptionId: { type: String, default: '' },  // id da preapproval

@@ -244,7 +244,9 @@ export default function CartUI({ cart, data, buttonStyle }) {
                           ))}
                         </div>
                         <p className="text-sm text-gray-700">Faltam <strong>{card.goal - card.stamps}</strong> pedido(s) para ganhar <strong>{card.reward}</strong>.</p>
-                        {!card.stamped && <p className="text-xs text-gray-500">Este pedido não somou selo: conta no máximo 1 pedido a cada 30 minutos.</p>}
+                        {card.pending
+                          ? <p className="text-xs text-gray-600">O selo deste pedido entra no cartão assim que a loja confirmar que recebeu o pedido.</p>
+                          : !card.stamped && <p className="text-xs text-gray-500">Este pedido não somou selo.</p>}
                       </>
                     )}
                     {card.rewardsPending > (card.earned ? 1 : 0) && (

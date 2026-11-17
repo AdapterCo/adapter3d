@@ -40,11 +40,13 @@ export default function PlanTab({ onServerUpdate }) {
   // Carregamento de dados ao montar/mudar filtro (padrão de busca de dados).
   useEffect(() => { load(); }, [load]); // eslint-disable-line react-hooks/set-state-in-effect
 
-  const subscribe = async () => {
+  // tier opcional: assinar já num plano maior (escolhido na lista de planos).
+  const subscribe = async (tier) => {
     setBusy(true); setError(''); setMsg('');
     try {
-      const res = await api.post('/billing/subscribe');
+      const res = await api.post('/billing/subscribe', tier ? { tier } : {});
       if (res.data.invoiceUrl) window.open(res.data.invoiceUrl, '_blank', 'noopener');
+      if (res.data.tier) onServerUpdate?.({ productLimit: res.data.tier });
       await load();
     } catch (err) {
       setError(err.response?.data?.message || 'Não foi possível assinar agora.');
@@ -66,6 +68,17 @@ export default function PlanTab({ onServerUpdate }) {
   // Troca de plano (quantidade de produtos).
   const changePlan = async (opt) => {
     const up = opt.tier > info.tier;
+    // Sem assinatura ativa, aumentar = assinar já no plano maior (o limite
+    // maior só existe com cobrança no Mercado Pago).
+    if (up && !info.hasSubscription) {
+      const online = info.status === 'active' || info.status === 'legacy';
+      const note = online && info.activeUntil
+        ? ' O limite maior é liberado assim que o primeiro pagamento for aprovado.'
+        : '';
+      if (!window.confirm(`Assinar o plano de até ${opt.tier} produtos por ${brl(opt.price)}/mês?${note}`)) return;
+      await subscribe(opt.tier);
+      return;
+    }
     const text = info.hasSubscription
       ? `Mudar para o plano de até ${opt.tier} produtos por ${brl(opt.price)}/mês? O novo valor vale a partir da próxima cobrança${up ? ' e o limite maior já fica liberado agora' : ''}.`
       : `Mudar para o plano de até ${opt.tier} produtos (${brl(opt.price)}/mês)?`;
@@ -122,7 +135,7 @@ export default function PlanTab({ onServerUpdate }) {
         {(needsSubscription || legacyCanSubscribe) && (
           <div className="space-y-2 pt-2 border-t">
             <p className="text-sm text-gray-700">{legacyCanSubscribe ? 'Quer ativar a assinatura mensal?' : 'Assine para colocar seu perfil no ar:'}</p>
-            <button onClick={subscribe} disabled={busy}
+            <button onClick={() => subscribe()} disabled={busy}
               className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold disabled:opacity-60">
               {busy ? 'Gerando cobrança...' : 'Assinar agora'}
             </button>
@@ -147,6 +160,9 @@ export default function PlanTab({ onServerUpdate }) {
           <div>
             <p className="font-semibold text-gray-900">Quantidade de produtos</p>
             <p className="text-sm text-gray-500">Você usa {info.productCount} de {info.tier} produtos. Escolha o plano que cabe no seu cardápio.</p>
+            {info.pendingTier && (
+              <p className="text-sm text-amber-800 mt-1">Plano de até {info.pendingTier} produtos assinado: o novo limite é liberado quando o primeiro pagamento for aprovado.</p>
+            )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {info.plans.map(opt => {

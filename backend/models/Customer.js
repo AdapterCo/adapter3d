@@ -22,7 +22,21 @@ const customerSchema = new mongoose.Schema({
   rewardsRedeemed: { type: Number, default: 0, min: 0 },
   lastStampAt: { type: Date, default: null },
   firstOrderAt: { type: Date, default: Date.now },
-  lastOrderAt: { type: Date, default: Date.now }
+  lastOrderAt: { type: Date, default: Date.now },
+  // Pedidos enviados pelo carrinho que o lojista ainda não confirmou. O envio
+  // é anônimo (qualquer um digita qualquer telefone), então selo, aceite de
+  // novidades e nome só valem quando o lojista, que recebeu o pedido no
+  // WhatsApp daquele número, confirma no painel. No máximo 10 aguardando.
+  pendingOrders: {
+    type: [{
+      at: { type: Date, required: true },
+      total: { type: Number, default: 0, min: 0 },         // centavos
+      name: { type: String, default: '', maxlength: 80 },
+      marketing: { type: Boolean, default: false },
+      loyalty: { type: Boolean, default: false }
+    }],
+    default: []
+  }
 }, { versionKey: false });
 
 customerSchema.index({ profile: 1, phone: 1 }, { unique: true });
